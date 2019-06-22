@@ -113,7 +113,8 @@ func (b *Broker) NATSConnect() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		sc, err := stan.Connect("nats-streaming", uuid.Must(uuid.NewV4()).String(), stan.NatsConn(nc))
+		uid := uuid.NewV4()
+		sc, err := stan.Connect("nats-streaming", uid.String(), stan.NatsConn(nc))
 		if err != nil {
 			log.Fatal(err)
 		}

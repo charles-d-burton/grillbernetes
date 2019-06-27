@@ -4,8 +4,7 @@ RUN apk add --update --no-cache ca-certificates git gcc libc-dev
 RUN mkdir /app
 WORKDIR /app
 COPY ./events/ .
-COPY ./go.mod .
-COPY ./go.sum .
+
 ARG GOARCH=amd64
 ENV GOARCH $GOARCH
 RUN echo "Building for arch: $GOARCH"

@@ -4,7 +4,6 @@ go 1.12
 
 require (
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
-	github.com/charles-d-burton/control-hub v0.0.0-20190615171315-030217290b5c
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-hclog v0.9.2 // indirect
 	github.com/hashicorp/go-immutable-radix v1.1.0 // indirect

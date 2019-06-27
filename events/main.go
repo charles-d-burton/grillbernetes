@@ -1,13 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
-	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/charles-d-burton/grillbernetes/events/messagebus"
 	nats "github.com/nats-io/go-nats"
 	stan "github.com/nats-io/go-nats-streaming"
 	uuid "github.com/satori/go.uuid"
@@ -98,10 +100,10 @@ func main() {
 
 	// When we get a request at "/", call `handler`
 	// in a new goroutine.
-	http.Handle("/", http.HandlerFunc(handler))
+	//http.Handle("/", http.HandlerFunc(handler))
 
 	// Start the server and listen forever on port 8000.
-	http.ListenAndServe(":8888", nil)
+	http.ListenAndServe(":7777", nil)
 
 }
 
@@ -238,10 +240,24 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println("Finished HTTP request at ", r.URL.Path)
 }
 
+func handleSend(rw http.ResponseWriter, req *http.Request) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println(string(body))
+	var msg messagebus.Message
+	err = json.Unmarshal(body, &msg)
+	if err != nil {
+		log.Println(err)
+	}
+	messagebus.Publish(&msg)
+}
+
 // Handler for the main page, which we wire up to the
 // route at "/" below in `main`.
 //
-func handler(w http.ResponseWriter, r *http.Request) {
+/* func handler(w http.ResponseWriter, r *http.Request) {
 
 	// Did you know Golang's ServeMux matches only the
 	// prefix of the request URL?  It's true.  Here we
@@ -264,3 +280,4 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	// Done.
 	log.Println("Finished HTTP request at", r.URL.Path)
 }
+*/

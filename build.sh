@@ -2,6 +2,7 @@
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
 
+#Compile every architecture
 arches=("amd64" "arm" "arm64")
 repos=("charlesdburton/grillbernetes-frontend")
 for arch in "${arches[@]}"
@@ -10,9 +11,7 @@ do
   repos+=("${repos[0]}:${arch}")
 done
 
-#docker build -f events/Dockerfile-amd64 -t charlesdburton/grillbernetes-frontend:amd64 .
-#docker build -f events/Dockerfile-arm64 -t charlesdburton/grillbernetes-frontend:arm64 .
-#docker build -f events/Dockerfile-armhf -t charlesdburton/grillbernetes-frontend:armhf .
+#Login to Docker and push the images
 docker login
 for image in "${repos[@]:1}"
 do
@@ -20,19 +19,15 @@ do
   docker push $image
 done
 
+#Create the docker manifest for all of the images
 echo "Creating manifest for ${repos[@]}"
 docker manifest create --amend "${repos[@]}"
-#docker manifest create --amend charlesdburton/grillbernetes-frontend \
- #charlesdburton/grillbernetes-frontend:amd64 \
- #charlesdburton/grillbernetes-frontend:arm64 \
- #charlesdburton/grillbernetes-frontend:armhf
 
+#Tag every image with the correct architecture
 for arch in "${arches[@]}"
 do
 echo "Annotating ${repos[0]}:${arch}"
 docker manifest annotate --arch ${arch} ${repos[0]} ${repos[0]}:${arch}
 done
-#docker manifest annotate --arch arm charlesdburton/grillbernetes-frontend charlesdburton/grillbernetes-frontend:armhf
-#docker manifest annotate --arch arm64 charlesdburton/grillbernetes-frontend charlesdburton/grillbernetes-frontend:arm64
-#docker manifest annotate --arch amd64 charlesdburton/grillbernetes-frontend charlesdburton/grillbernetes-frontend:amd64
+
 docker manifest push charlesdburton/grillbernetes-frontend

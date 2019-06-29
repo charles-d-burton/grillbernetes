@@ -13,5 +13,5 @@ RUN GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o /go/bin/app
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /go/bin/app /go/bin/app
-COPY ./events/templates /go/bin/templates
+COPY ./templates /go/bin/templates
 ENTRYPOINT ["/go/bin/app"]

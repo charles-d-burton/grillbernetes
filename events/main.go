@@ -1,10 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"html/template"
 	"log"
 	"net/http"
 	"os"

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/charles-d-burton/grillbernetes/events/messagebus"
 	nats "github.com/nats-io/go-nats"
 	stan "github.com/nats-io/go-nats-streaming"
 	uuid "github.com/satori/go.uuid"

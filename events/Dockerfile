@@ -3,7 +3,7 @@ FROM golang:alpine as build
 RUN apk add --update --no-cache ca-certificates git gcc libc-dev
 RUN mkdir /app
 WORKDIR /app
-COPY ./events/ .
+COPY ./ .
 
 ARG GOARCH=amd64
 ENV GOARCH $GOARCH

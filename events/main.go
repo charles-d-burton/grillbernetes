@@ -240,24 +240,10 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println("Finished HTTP request at ", r.URL.Path)
 }
 
-func handleSend(rw http.ResponseWriter, req *http.Request) {
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println(string(body))
-	var msg messagebus.Message
-	err = json.Unmarshal(body, &msg)
-	if err != nil {
-		log.Println(err)
-	}
-	messagebus.Publish(&msg)
-}
-
 // Handler for the main page, which we wire up to the
-// route at "/" below in `main`.
+// route at "/" below n `main`.
 //
-/* func handler(w http.ResponseWriter, r *http.Request) {
+func handler(w http.ResponseWriter, r *http.Request) {
 
 	// Did you know Golang's ServeMux matches only the
 	// prefix of the request URL?  It's true.  Here we
@@ -280,4 +266,3 @@ func handleSend(rw http.ResponseWriter, req *http.Request) {
 	// Done.
 	log.Println("Finished HTTP request at", r.URL.Path)
 }
-*/

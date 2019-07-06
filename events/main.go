@@ -98,7 +98,7 @@ func main() {
 
 	// When we get a request at "/", call `handler`
 	// in a new goroutine.
-	//http.Handle("/", http.HandlerFunc(handler))
+	http.Handle("/", http.HandlerFunc(handler))
 
 	// Start the server and listen forever on port 8000.
 	http.ListenAndServe(":7777", nil)

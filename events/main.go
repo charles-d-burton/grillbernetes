@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"encoding/json"
 
 	nats "github.com/nats-io/go-nats"
 	stan "github.com/nats-io/go-nats-streaming"
@@ -121,8 +122,11 @@ func (b *Broker) NATSConnect() {
 		log.Println("NATS Connected")
 		log.Println("Initializing callback")
 		sc.Subscribe(b.subscribeTopic, func(m *stan.Msg) {
+			data, err := json.Marshal(m)
+			log.Println(data)
+			if err != nil {}
 			select {
-			case b.messages <- string(m.Data):
+			case b.messages <- string(data):
 			default:
 			}
 		}, stan.StartWithLastReceived())

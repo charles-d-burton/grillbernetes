@@ -137,6 +137,10 @@ func (b *Broker) NATSConnect() {
 	}()
 }
 
+func (b *Broker) MockGen() {
+	
+}
+
 // This Broker method starts a new goroutine.  It handles
 // the addition & removal of clients, as well as the broadcasting
 // of messages out to clients that are currently attached.

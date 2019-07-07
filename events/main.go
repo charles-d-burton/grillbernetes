@@ -114,8 +114,7 @@ func (b *Broker) NATSConnect() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		uid := uuid.NewV4()
-		sc, err := stan.Connect("nats-streaming", uid.String(), stan.NatsConn(nc))
+		sc, err := stan.Connect("nats-streaming", uuid.NewV4().String(), stan.NatsConn(nc))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -176,7 +175,7 @@ func (b *Broker) Start() {
 				for s := range b.clients {
 					s <- msg
 				}
-				log.Printf("Broadcast message to %d clients", len(b.clients))
+				//log.Printf("Broadcast message to %d clients", len(b.clients))
 			}
 		}
 	}()

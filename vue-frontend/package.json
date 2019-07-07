@@ -13,6 +13,9 @@
     "core-js": "^2.6.5",
     "vue": "^2.6.10",
     "vue-apexcharts": "^1.4.0",
+    "vue-chartkick": "^0.5.1",
+    "vue-router": "^3.0.7",
+    "vue-sse": "^1.0.2",
     "vuetify": "^1.5.5"
   },
   "devDependencies": {

@@ -120,10 +120,14 @@ func (b *Broker) NATSConnect() {
 		}
 		log.Println("NATS Connected")
 		log.Println("Initializing callback")
+		var datum = make(map[string]interface{}, 2)
 		sc.Subscribe(b.subscribeTopic, func(m *stan.Msg) {
-			data, err := json.Marshal(m)
-			log.Println(string(data))
-			if err != nil {}
+			datum["timestamp"] = m.Timestamp
+			datum["data"] = json.RawMessage(m.Data)
+			data, err := json.Marshal(datum)
+			if err != nil {
+				log.Println(err)
+			}
 			select {
 			case b.messages <- string(data):
 			default:

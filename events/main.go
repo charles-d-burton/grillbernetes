@@ -122,7 +122,7 @@ func (b *Broker) NATSConnect() {
 		log.Println("Initializing callback")
 		sc.Subscribe(b.subscribeTopic, func(m *stan.Msg) {
 			data, err := json.Marshal(m)
-			log.Println(data)
+			log.Println(string(data))
 			if err != nil {}
 			select {
 			case b.messages <- string(data):
@@ -230,7 +230,7 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Write to the ResponseWriter, `w`.
-		fmt.Fprintf(w, "data: Message: %s\n\n", msg)
+		fmt.Fprintf(w, msg + "\n")
 
 		// Flush the response.  This is only possible if
 		// the repsonse supports streaming.

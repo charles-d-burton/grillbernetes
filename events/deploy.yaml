@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
       - name: events
-        image: "charlesdburton/grillbernetes-events:latest"
+        image: "charlesdburton/grillbernetes-events:arm64"
         args:
         - "-nh=nats://nats-cluster:4222"
         ports:

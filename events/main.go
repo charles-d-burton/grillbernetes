@@ -26,7 +26,7 @@ Options:
 	-st, --subscribe-topic   <Topic>        Topic to listen for upate messages
 `
 
-// A single Broker will be created in this program. It is responsible
+//Broker will be created in this program. It is responsible
 // for keeping a list of which clients (browsers) are currently attached
 // and broadcasting events (messages) to those clients.
 //
@@ -180,6 +180,7 @@ func (b *Broker) NATSConnect() {
 	}
 }
 
+//MockGen Generates a mock stream of data
 func (b *Broker) MockGen() {
 	log.Println("Mock Generator started")
 	var id = "3b-6cfc0958d2fb"
@@ -206,7 +207,7 @@ func (b *Broker) MockGen() {
 	}
 }
 
-// This Broker method starts a new goroutine.  It handles
+//Start method starts a new goroutine.  It handles
 // the addition & removal of clients, as well as the broadcasting
 // of messages out to clients that are currently attached.
 //

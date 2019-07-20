@@ -1,0 +1,12 @@
+[Unit]
+Description="Runs the pi smoker"
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+ExecStart=/home/pi/pismoker -nh nats://192.168.3.221:4222
+
+[Install]
+WantedBy=multi-user.target

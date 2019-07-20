@@ -8,7 +8,6 @@ Interfaces with a Raspberry Pi and a DS18b20 sensor to send updates to a data st
 * DS18b20 (I used the MAX31850k from Adafruit)
 * Relay (I used a BEM 40a SSR)
 * A NATS Streaming Host to publish data to
-* 
 
 ### Building
 
@@ -30,4 +29,5 @@ $sudo systemctl daemon-reload && systemctl enable pismoker && systemctl start pi
 * Handle multiple relays (not sure on this one)
 * Integrate other sensor types such as smoke density and humidity
 * Message bus abstraction to support other message bus types
+* A learning mode to figure out the Kp, Ki, Kd optimizations
 

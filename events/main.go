@@ -1,17 +1,21 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
-	"encoding/json"
+	"time"
 
+	uuid "github.com/google/uuid"
+	"github.com/jeffchao/backoff"
 	nats "github.com/nats-io/go-nats"
 	stan "github.com/nats-io/go-nats-streaming"
-	uuid "github.com/satori/go.uuid"
 )
 
 var usageStr = `
@@ -30,6 +34,7 @@ type Broker struct {
 	publishTopic   string
 	subscribeTopic string
 	natsHost       string
+
 	// Create a map of clients, the keys of the map are the channels
 	// over which we can push messages to attached clients.  (The values
 	// are just booleans and are meaningless.)
@@ -56,17 +61,19 @@ func main() {
 	var natsHost string
 	var publishTopic string
 	var subscribeTopic string
+	var mockGen = false
 	flag.StringVar(&natsHost, "nh", "", "Start the controller connecting to the defined NATS Streaming server")
 	flag.StringVar(&natsHost, "nats-host", "", "Start the controller connecting to the defined NATS Streaming server")
 	flag.StringVar(&publishTopic, "pt", "smoker-controls", "Topic to publish readings to in NATS")
 	flag.StringVar(&publishTopic, "publish-topic", "smoker-controls", "Topic to publish readings to in NATS")
 	flag.StringVar(&subscribeTopic, "st", "smoker-readings", "Topic to listen for control messages")
 	flag.StringVar(&subscribeTopic, "subscribe-topic", "smoker-readings", "Topic to listen for control messages")
+	flag.BoolVar(&mockGen, "mock", true, "Generate mock data")
 
 	flag.Parse()
 	if natsHost == "" {
 		natsHost = os.Getenv("NATS_HOST")
-		if natsHost == "" {
+		if natsHost == "" && !mockGen {
 			log.Fatal(usageStr)
 		}
 	}
@@ -81,8 +88,11 @@ func main() {
 		make(chan (chan string)),
 		make(chan string),
 	}
-
-	b.NATSConnect()
+	if mockGen {
+		go b.MockGen()
+	} else {
+		go b.NATSConnect()
+	}
 
 	// Start processing events
 	b.Start()
@@ -108,37 +118,92 @@ func main() {
 
 //NATSConnect  Connect to the NATS streaming server and start pushing updates to clients
 func (b *Broker) NATSConnect() {
-	go func() {
-		log.Println("Connecting to NATS at: ", b.natsHost)
-		nc, err := nats.Connect(b.natsHost)
-		if err != nil {
-			log.Fatal(err)
-		}
-		sc, err := stan.Connect("nats-streaming", uuid.NewV4().String(), stan.NatsConn(nc))
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Println("NATS Connected")
-		log.Println("Initializing callback")
-		var datum = make(map[string]interface{}, 2)
-		sc.Subscribe(b.subscribeTopic, func(m *stan.Msg) {
-			datum["timestamp"] = m.Timestamp
-			datum["data"] = json.RawMessage(m.Data)
-			data, err := json.Marshal(datum)
+	f := backoff.Fibonacci()
+	f.Interval = 1 * time.Millisecond
+	f.MaxRetries = 20
+	cleanup := make(chan bool, 1)
+	guid, err := uuid.NewRandom()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	for {
+		connect := func() error {
+			log.Println("Connecting to NATS at: ", b.natsHost)
+			nc, err := nats.Connect(b.natsHost)
 			if err != nil {
-				log.Println(err)
+				log.Fatal(err)
 			}
-			select {
-			case b.messages <- string(data):
-			default:
+			log.Println("UUID: ", guid.String())
+			sc, err := stan.Connect("nats-streaming", guid.String(), stan.NatsConn(nc),
+				stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
+					log.Println("Client Disconnected, sending cleanup signal")
+					log.Println(reason)
+					cleanup <- true
+				}))
+			if err != nil {
+				log.Fatal(err)
+				return err
 			}
-		}, stan.StartWithLastReceived())
-		log.Println("Listening for messages on topic: ", b.subscribeTopic)
-	}()
+			log.Println("NATS Connected")
+			log.Println("Initializing callback")
+			var datum = make(map[string]interface{}, 2)
+			sub, err := sc.Subscribe(b.subscribeTopic, func(m *stan.Msg) {
+				datum["timestamp"] = m.Timestamp
+				datum["data"] = json.RawMessage(m.Data)
+				data, err := json.Marshal(datum)
+				if err != nil {
+					log.Println(err)
+				}
+				select {
+				case b.messages <- string(data):
+				default:
+				}
+			}, stan.StartWithLastReceived())
+			if err != nil {
+				return err
+			}
+
+			log.Println("Listening for messages on topic: ", b.subscribeTopic)
+			for range cleanup {
+				log.Println("Client disconnected, cleaning up before retry")
+				sub.Unsubscribe()
+				return errors.New("Client Disconnnected")
+			}
+			return nil
+		}
+		err := f.Retry(connect)
+		if err != nil {
+			log.Println(err)
+		}
+		f.Reset()
+	}
 }
 
 func (b *Broker) MockGen() {
-	
+	log.Println("Mock Generator started")
+	var id = "3b-6cfc0958d2fb"
+	ticker := time.NewTicker(1 * time.Second)
+	var datum = make(map[string]interface{}, 2)
+	//var data = make(map[string]interface{}, 1)
+	var temps = make(map[string]interface{}, 3)
+	for range ticker.C {
+		rand.Seed(time.Now().UnixNano())
+		datum["timestamp"] = time.Now().UnixNano() / int64(time.Millisecond)
+		temps["id"] = id
+		temps["f"] = rand.Intn(300-50) + 50
+		temps["c"] = rand.Intn(150-20) + 20
+		datum["data"] = temps
+		jsondata, err := json.Marshal(datum)
+		log.Println("Generated message", string(jsondata))
+		if err != nil {
+			log.Println(err)
+		}
+		select {
+		case b.messages <- string(jsondata):
+		default:
+		}
+	}
 }
 
 // This Broker method starts a new goroutine.  It handles
@@ -238,7 +303,7 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Write to the ResponseWriter, `w`.
-		fmt.Fprintf(w, msg + "\n")
+		fmt.Fprintf(w, msg+"\n")
 
 		// Flush the response.  This is only possible if
 		// the repsonse supports streaming.

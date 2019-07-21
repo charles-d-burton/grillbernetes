@@ -14,6 +14,19 @@ A collection of software and infrastructure to manage a Smoker or other temperat
 * Some device that needs relatively precise temperature control
 * (Other things that I've likely forgotten)
 
+### Building the components(Other than the PiSmoker)
+Run:
+```bash
+$./build.sh -u <your dockerhub username>
+```
+
+This will build and upload the artifacts to your personal Docker Hub compiled for
+* ARM
+* ARM64
+* AMD64
+
+Projects are configured to pull in the correct image based on your SBC arch.
+
 ## Components By Directory
 Review the README for each piece for technical details.
 ### Cluster Setup
@@ -35,3 +48,9 @@ Program to interface and control a Smoker attached to a Raspberry Pi.
 
 ### Vue-Frontend
 SPA(WIP)
+
+### Global TODO:
+* Align topic handling to be configurable in all services
+* Allow event publisher to serve multiple topics
+* Set control hub to allow control of multiple topics
+* (Maybe those should be kubeless?)

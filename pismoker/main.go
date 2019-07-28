@@ -40,5 +40,5 @@ func main() {
 		}
 		machineName = strings.Replace(name, ".", "-", -1)
 	}
-	controller.StartServer(natsHost, machineName+"/readings", machineName+"/control")
+	controller.StartServer(natsHost, machineName+"-readings", machineName+"-control")
 }

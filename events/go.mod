@@ -3,6 +3,7 @@ module github.com/charles-d-burton/grillbernetes/events
 go 1.12
 
 require (
+	github.com/gin-gonic/gin v1.4.0 // indirect
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/jeffchao/backoff v0.0.0-20140404060208-9d7fd7aa17f2

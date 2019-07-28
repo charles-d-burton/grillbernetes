@@ -236,9 +236,12 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 	}
 	log.Println("NATS Connected")
 	log.Println("Initializing callback")
-	sc.Subscribe(controlTopic, func(m *stan.Msg) {
+	_, err = sc.Subscribe(controlTopic, func(m *stan.Msg) {
 		ProcessNATSMessage(m)
 	}, stan.StartWithLastReceived())
+	if err != nil {
+		log.Fatal(err)
+	}
 	log.Println("Listening for messages on topic: ", controlTopic)
 	for {
 		select {

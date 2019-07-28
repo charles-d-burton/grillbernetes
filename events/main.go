@@ -99,7 +99,7 @@ func main() {
 func (env *Env) Subscribe(c *gin.Context) {
 	device := c.Param("device")
 	channel := c.Param("channel")
-	topic := "/" + device + "/" + channel
+	topic := device + "/" + channel
 	log.Println("Subscribing to topic: ", topic)
 	subscriber, err := env.natsConn.GetSubscriber(topic)
 	if err != nil {

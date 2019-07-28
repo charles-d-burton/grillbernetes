@@ -4,55 +4,53 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
-	"html/template"
+	"io"
 	"log"
 	"math/rand"
-	"net/http"
 	"os"
+	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	uuid "github.com/google/uuid"
 	"github.com/jeffchao/backoff"
 	nats "github.com/nats-io/go-nats"
 	stan "github.com/nats-io/go-nats-streaming"
 )
 
-var usageStr = `
+var (
+	usageStr = `
 Usage: pismoker [options]
 Options:
 	-nh, --nats-host       <NATSHost>     Start the controller connecting to the defined NATS Streaming server
 	-pt, --publish-topic   <Topic>        Topic to publish messages to in NATS
 	-st, --subscribe-topic   <Topic>        Topic to listen for upate messages
 `
+)
 
-//Broker will be created in this program. It is responsible
-// for keeping a list of which clients (browsers) are currently attached
-// and broadcasting events (messages) to those clients.
-//
-type Broker struct {
-	publishTopic   string
-	subscribeTopic string
-	natsHost       string
+//Env place to hold a reference to the NATSConnection
+type Env struct {
+	natsConn *NATSConnection
+}
 
-	// Create a map of clients, the keys of the map are the channels
-	// over which we can push messages to attached clients.  (The values
-	// are just booleans and are meaningless.)
-	//
-	clients map[chan string]bool
+//NATSConnection holds the connection and status information of the NATS backend
+type NATSConnection struct {
+	sync.RWMutex
+	Conn        stan.Conn
+	NatsHost    string
+	subscribers map[string]*Subscriber
+}
 
-	// Channel into which new clients can be pushed
-	//
-	newClients chan chan string
-
-	// Channel into which disconnected clients should be pushed
-	//
-	defunctClients chan chan string
-
-	// Channel into which messages are pushed to be broadcast out
-	// to attahed clients.
-	//
-	messages chan string
+//Subscriber non-blocking broker of NATS messages to HTTP clients
+type Subscriber struct {
+	topic           string
+	sub             stan.Subscription
+	connEstablished chan bool
+	errors          chan error
+	clients         map[chan string]bool
+	newClients      chan chan string
+	defunctClients  chan chan string
+	messages        chan string
 }
 
 func main() {
@@ -68,7 +66,7 @@ func main() {
 	flag.StringVar(&publishTopic, "publish-topic", "smoker-controls", "Topic to publish readings to in NATS")
 	flag.StringVar(&subscribeTopic, "st", "smoker-readings", "Topic to listen for control messages")
 	flag.StringVar(&subscribeTopic, "subscribe-topic", "smoker-readings", "Topic to listen for control messages")
-	flag.BoolVar(&mockGen, "mock", true, "Generate mock data")
+	flag.BoolVar(&mockGen, "mock", false, "Generate mock data")
 
 	flag.Parse()
 	if natsHost == "" {
@@ -78,266 +76,265 @@ func main() {
 		}
 	}
 
-	// Make a new Broker instance
-	b := &Broker{
-		publishTopic,
-		subscribeTopic,
-		natsHost,
-		make(map[chan string]bool),
-		make(chan (chan string)),
-		make(chan (chan string)),
-		make(chan string),
-	}
+	router := gin.Default()
 	if mockGen {
-		go b.MockGen()
+		router.GET("/events/:device/:channel", MockGen)
+		router.Run(":7777")
+
 	} else {
-		go b.NATSConnect()
+		// Make a new Broker instance
+		nc := &NATSConnection{
+			NatsHost:    natsHost,
+			subscribers: make(map[string]*Subscriber, 10),
+		}
+		nc.Connect()
+		env := &Env{nc}
+		router.GET("/events/:device/:channel", env.Subscribe)
+		router.Run(":7777")
 	}
-
-	// Start processing events
-	b.Start()
-
-	// Make b the HTTP handler for "/events/".  It can do
-	// this because it has a ServeHTTP method.  That method
-	// is called in a separate goroutine for each
-	// request to "/events/".
-	http.Handle("/events/", b)
-
-	// Generate a constant stream of events that get pushed
-	// into the Broker's messages channel and are then broadcast
-	// out to any clients that are attached.
-
-	// When we get a request at "/", call `handler`
-	// in a new goroutine.
-	http.Handle("/", http.HandlerFunc(handler))
-
-	// Start the server and listen forever on port 8000.
-	http.ListenAndServe(":7777", nil)
 
 }
 
-//NATSConnect  Connect to the NATS streaming server and start pushing updates to clients
-func (b *Broker) NATSConnect() {
-	f := backoff.Fibonacci()
-	f.Interval = 1 * time.Millisecond
-	f.MaxRetries = 20
-	cleanup := make(chan bool, 1)
-	guid, err := uuid.NewRandom()
+//Subscribe gin context to subscribe to an event stream
+func (env *Env) Subscribe(c *gin.Context) {
+	device := c.Param("device")
+	channel := c.Param("channel")
+	topic := device + "-" + channel
+	log.Println("Subscribing to topic: ", topic)
+	subscriber, err := env.natsConn.GetSubscriber(topic)
 	if err != nil {
-		log.Println(err)
+		c.AbortWithError(404, err)
 		return
 	}
-	for {
+	log.Println("Got subscriber from NATS Connection")
+	buffer := make(chan string, 100)
+	subscriber.newClients <- buffer //Add our new client to the recipient list
+	clientGone := c.Writer.CloseNotify()
+	c.Stream(func(w io.Writer) bool {
+		select {
+		case <-clientGone:
+			subscriber.defunctClients <- buffer //Remove our client from the client list
+			return false
+		case message := <-buffer:
+			c.SSEvent("", message)
+			return true
+		case err := <-subscriber.errors:
+			subscriber.defunctClients <- buffer //Remove our client from the client list
+			c.SSEvent("ERROR:", err.Error())
+			return false
+		}
+	})
+}
+
+//Connect to the NATS remote host with backoff
+func (conn *NATSConnection) Connect() {
+	log.Println("Starting NATS Connection handler")
+	go func() {
+		f := backoff.Fibonacci()
+		f.Interval = 100 * time.Millisecond
+		f.MaxRetries = 60
 		connect := func() error {
-			log.Println("Connecting to NATS at: ", b.natsHost)
-			nc, err := nats.Connect(b.natsHost)
+			cleanup := make(chan bool, 1)
+			log.Println("Connecting to NATS at: ", conn.NatsHost)
+			nc, err := nats.Connect(conn.NatsHost)
 			if err != nil {
 				log.Fatal(err)
+			}
+			guid, err := uuid.NewRandom() //Create a new random unique identifier
+			if err != nil {
+				log.Println(err)
+				return err
 			}
 			log.Println("UUID: ", guid.String())
 			sc, err := stan.Connect("nats-streaming", guid.String(), stan.NatsConn(nc),
 				stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
 					log.Println("Client Disconnected, sending cleanup signal")
 					log.Println(reason)
-					cleanup <- true
+					for _, sub := range conn.subscribers {
+						sub.connEstablished <- false
+					}
+					cleanup <- true //Fire the job to throw an error and retry
 				}))
 			if err != nil {
-				log.Fatal(err)
 				return err
 			}
+			conn.Lock()
+			conn.Conn = sc //Save the connection
+			conn.Unlock()
 			log.Println("NATS Connected")
-			log.Println("Initializing callback")
-			var datum = make(map[string]interface{}, 2)
-			sub, err := sc.Subscribe(b.subscribeTopic, func(m *stan.Msg) {
-				datum["timestamp"] = m.Timestamp
-				datum["data"] = json.RawMessage(m.Data)
-				data, err := json.Marshal(datum)
-				if err != nil {
-					log.Println(err)
+			if len(conn.subscribers) > 0 {
+				for _, sub := range conn.subscribers {
+					sub.connEstablished <- true //Let the subscriptions know the connections was established
 				}
-				select {
-				case b.messages <- string(data):
-				default:
-				}
-			}, stan.StartWithLastReceived())
-			if err != nil {
-				return err
 			}
-
-			log.Println("Listening for messages on topic: ", b.subscribeTopic)
-			for range cleanup {
-				log.Println("Client disconnected, cleaning up before retry")
-				sub.Unsubscribe()
-				return errors.New("Client Disconnnected")
+			select {
+			case <-cleanup:
+				return errors.New("Connection lost")
 			}
-			return nil
 		}
 		err := f.Retry(connect)
 		if err != nil {
-			log.Println(err)
+			log.Fatal(err) //Unable to reconnect, dying
 		}
-		f.Reset()
+	}()
+}
+
+//GetSubscriber checks for a subscriber, if none is found it creates a new one
+func (conn *NATSConnection) GetSubscriber(topic string) (*Subscriber, error) {
+	conn.Lock()
+	sub, found := conn.subscribers[topic]
+	conn.Unlock()
+	if found {
+		log.Println("Subscriber found for topic: ", topic)
+		return sub, nil
 	}
+	log.Println("No subscriber found for topic: ", topic)
+	log.Println("Creating new subscriber")
+	sub = &Subscriber{
+		topic:           topic,
+		connEstablished: make(chan bool, 3),
+		clients:         make(map[chan string]bool, 100),
+		newClients:      make(chan (chan string)),
+		defunctClients:  make(chan (chan string)),
+		messages:        make(chan string, 100),
+		errors:          make(chan error, 1),
+	}
+	err := sub.Start(conn)
+	if err != nil {
+		return nil, err
+	}
+	conn.Lock()
+	conn.subscribers[topic] = sub
+	conn.Unlock()
+	return sub, nil
+}
+
+//Start process messages from the subscription and fan out to listeners, also handles subscription status
+func (subscriber *Subscriber) Start(conn *NATSConnection) error {
+	go func() {
+		log.Println("Starting new subscriber for topic: ", subscriber.topic)
+		sub, err := subscriber.Subscribe(conn) //First subscribe to my topic
+		if err != nil {
+			log.Println(err)
+			subscriber.errors <- err
+		}
+		subscriber.sub = sub
+		for {
+			select {
+			case s := <-subscriber.newClients:
+				subscriber.clients[s] = true
+				log.Println("Added new subscriber to: ", subscriber.topic)
+			case s := <-subscriber.defunctClients:
+				delete(subscriber.clients, s)
+				log.Println("Removed subscriber from: ", subscriber.topic)
+				if len(subscriber.clients) == 0 { //No more clients to service, fully cleanup
+					log.Println("No more clients, removing subscriber")
+					if subscriber.sub != nil {
+						conn.Lock() //Prevent race condition where new client can be added while unsubscribing
+						log.Println("Locked connection")
+						err := subscriber.sub.Unsubscribe()
+						if err != nil {
+							log.Println(err)
+						}
+						delete(conn.subscribers, subscriber.topic)
+						conn.Unlock()
+						log.Println("Released lock")
+						log.Println("Connection cleaned up, exiting subscriber")
+					}
+					return
+				}
+			case msg := <-subscriber.messages:
+				if len(subscriber.clients) != 0 {
+					for s := range subscriber.clients {
+						s <- msg
+					}
+				}
+			case est := <-subscriber.connEstablished:
+				if est {
+					sub, err := subscriber.Subscribe(conn) //Connection was re-established, start working again
+					if err != nil {
+						subscriber.errors <- err
+					} else {
+						subscriber.sub = sub
+					}
+				} else {
+					sub.Unsubscribe() //Connection lost, stop processing
+				}
+			}
+		}
+	}()
+	return nil
+}
+
+//Subscribe to a given topic in NATS
+func (subscriber *Subscriber) Subscribe(conn *NATSConnection) (stan.Subscription, error) {
+	log.Println("Initializing callback")
+	log.Println("Subscription topic is: ", subscriber.topic)
+	var datum = make(map[string]interface{}, 2)
+	sub, err := conn.Conn.Subscribe(subscriber.topic, func(m *stan.Msg) {
+		datum["timestamp"] = m.Timestamp
+		datum["data"] = json.RawMessage(m.Data)
+		data, err := json.Marshal(datum)
+		if err != nil {
+			log.Println(err)
+		} else {
+			subscriber.messages <- string(data)
+		}
+		/*select {
+		case subscription.messages <- string(data):
+		default:
+		}*/
+	}, stan.StartWithLastReceived())
+	if err != nil {
+		return nil, err
+	}
+
+	return sub, nil
 }
 
 //MockGen Generates a mock stream of data
-func (b *Broker) MockGen() {
+func MockGen(c *gin.Context) {
 	log.Println("Mock Generator started")
 	var id = "3b-6cfc0958d2fb"
+	device := c.Param("device")
+	channel := c.Param("channel")
+	topic := "/" + device + "/" + channel
+	log.Println("Sending messages to topic: ", topic)
 	ticker := time.NewTicker(1 * time.Second)
 	var datum = make(map[string]interface{}, 2)
 	//var data = make(map[string]interface{}, 1)
 	var temps = make(map[string]interface{}, 3)
-	for range ticker.C {
-		rand.Seed(time.Now().UnixNano())
-		datum["timestamp"] = time.Now().UnixNano() / int64(time.Millisecond)
-		temps["id"] = id
-		temps["f"] = rand.Intn(300-50) + 50
-		temps["c"] = rand.Intn(150-20) + 20
-		datum["data"] = temps
-		jsondata, err := json.Marshal(datum)
-		log.Println("Generated message", string(jsondata))
-		if err != nil {
-			log.Println(err)
-		}
-		select {
-		case b.messages <- string(jsondata):
-		default:
-		}
-	}
-}
 
-//Start method starts a new goroutine.  It handles
-// the addition & removal of clients, as well as the broadcasting
-// of messages out to clients that are currently attached.
-//
-func (b *Broker) Start() {
-
-	// Start a goroutine
-	//
+	clientGone := c.Writer.CloseNotify()
+	buffer := make(chan string, 100)
 	go func() {
-
-		// Loop endlessly
-		//
-		for {
-
-			// Block until we receive from one of the
-			// three following channels.
+		for range ticker.C {
+			rand.Seed(time.Now().UnixNano())
+			datum["timestamp"] = time.Now().UnixNano() / int64(time.Millisecond)
+			temps["id"] = id
+			temps["f"] = rand.Intn(300-50) + 50
+			temps["c"] = rand.Intn(150-20) + 20
+			datum["data"] = temps
+			jsondata, err := json.Marshal(datum)
+			log.Println("Generated message", string(jsondata))
+			if err != nil {
+				log.Println(err)
+			}
 			select {
-
-			case s := <-b.newClients:
-
-				// There is a new client attached and we
-				// want to start sending them messages.
-				b.clients[s] = true
-				log.Println("Added new client")
-
-			case s := <-b.defunctClients:
-
-				// A client has dettached and we want to
-				// stop sending them messages.
-				delete(b.clients, s)
-				close(s)
-
-				log.Println("Removed client")
-
-			case msg := <-b.messages:
-
-				// There is a new message to send.  For each
-				// attached client, push the new message
-				// into the client's message channel.
-				for s := range b.clients {
-					s <- msg
-				}
-				//log.Printf("Broadcast message to %d clients", len(b.clients))
+			case buffer <- string(jsondata):
+			default:
 			}
 		}
 	}()
-}
-
-// This Broker method handles and HTTP request at the "/events/" URL.
-//
-func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
-	// Make sure that the writer supports flushing.
-	//
-	f, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
-		return
-	}
-
-	// Create a new channel, over which the broker can
-	// send this client messages.
-	messageChan := make(chan string)
-
-	// Add this client to the map of those that should
-	// receive updates
-	b.newClients <- messageChan
-
-	// Listen to the closing of the http connection via the CloseNotifier
-	notify := w.(http.CloseNotifier).CloseNotify()
-	go func() {
-		<-notify
-		// Remove this client from the map of attached clients
-		// when `EventHandler` exits.
-		b.defunctClients <- messageChan
-		log.Println("HTTP connection just closed.")
-	}()
-
-	// Set the headers related to event streaming.
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Transfer-Encoding", "chunked")
-
-	// Don't close the connection, instead loop endlessly.
-	for {
-
-		// Read from our messageChan.
-		msg, open := <-messageChan
-
-		if !open {
-			// If our messageChan was closed, this means that the client has
-			// disconnected.
-			break
+	c.Stream(func(w io.Writer) bool {
+		select {
+		case <-clientGone:
+			log.Println("Stopping generator")
+			ticker.Stop()
+			return true
+		case message := <-buffer:
+			c.SSEvent("", message)
+			return true
 		}
-
-		// Write to the ResponseWriter, `w`.
-		fmt.Fprintf(w, msg+"\n")
-
-		// Flush the response.  This is only possible if
-		// the repsonse supports streaming.
-		f.Flush()
-	}
-
-	// Done.
-	log.Println("Finished HTTP request at ", r.URL.Path)
-}
-
-// Handler for the main page, which we wire up to the
-// route at "/" below n `main`.
-//
-func handler(w http.ResponseWriter, r *http.Request) {
-
-	// Did you know Golang's ServeMux matches only the
-	// prefix of the request URL?  It's true.  Here we
-	// insist the path is just "/".
-	if r.URL.Path != "/" {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	// Read in the template with our SSE JavaScript code.
-	t, err := template.ParseFiles("templates/index.html")
-	if err != nil {
-		log.Fatal("Error parsing your template.")
-
-	}
-
-	// Render the template, writing to `w`.
-	t.Execute(w, "friend")
-
-	// Done.
-	log.Println("Finished HTTP request at", r.URL.Path)
+	})
 }

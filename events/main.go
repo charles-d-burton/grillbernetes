@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"io"
-	"log"
 	"math/rand"
 	"os"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/jeffchao/backoff"
 	nats "github.com/nats-io/go-nats"
 	stan "github.com/nats-io/go-nats-streaming"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -26,7 +26,12 @@ Options:
 	-pt, --publish-topic   <Topic>        Topic to publish messages to in NATS
 	-st, --subscribe-topic   <Topic>        Topic to listen for upate messages
 `
+	log = logrus.New()
 )
+
+func init() {
+	log.SetFormatter(&logrus.JSONFormatter{})
+}
 
 //Env place to hold a reference to the NATSConnection
 type Env struct {
@@ -46,7 +51,6 @@ type Subscriber struct {
 	topic           string
 	sub             stan.Subscription
 	connEstablished chan bool
-	errors          chan error
 	clients         map[chan string]bool
 	newClients      chan chan string
 	defunctClients  chan chan string
@@ -54,18 +58,15 @@ type Subscriber struct {
 }
 
 func main() {
-	log.Println("Starting Grillbernetes Event Source")
+	log.Info("Starting Grillbernetes Event Source")
 
 	var natsHost string
 	var publishTopic string
-	var subscribeTopic string
 	var mockGen = false
 	flag.StringVar(&natsHost, "nh", "", "Start the controller connecting to the defined NATS Streaming server")
 	flag.StringVar(&natsHost, "nats-host", "", "Start the controller connecting to the defined NATS Streaming server")
 	flag.StringVar(&publishTopic, "pt", "smoker-controls", "Topic to publish readings to in NATS")
 	flag.StringVar(&publishTopic, "publish-topic", "smoker-controls", "Topic to publish readings to in NATS")
-	flag.StringVar(&subscribeTopic, "st", "smoker-readings", "Topic to listen for control messages")
-	flag.StringVar(&subscribeTopic, "subscribe-topic", "smoker-readings", "Topic to listen for control messages")
 	flag.BoolVar(&mockGen, "mock", false, "Generate mock data")
 
 	flag.Parse()
@@ -100,14 +101,15 @@ func (env *Env) Subscribe(c *gin.Context) {
 	device := c.Param("device")
 	channel := c.Param("channel")
 	topic := device + "-" + channel
-	log.Println("Subscribing to topic: ", topic)
+	log.Info("Subscribing to topic: ", topic)
 	subscriber, err := env.natsConn.GetSubscriber(topic)
 	if err != nil {
 		c.AbortWithError(404, err)
 		return
 	}
-	log.Println("Got subscriber from NATS Connection")
+	log.Info("Got subscriber from NATS Connection")
 	buffer := make(chan string, 100)
+	errs := make(chan error, 1)
 	subscriber.newClients <- buffer //Add our new client to the recipient list
 	clientGone := c.Writer.CloseNotify()
 	c.Stream(func(w io.Writer) bool {
@@ -116,9 +118,10 @@ func (env *Env) Subscribe(c *gin.Context) {
 			subscriber.defunctClients <- buffer //Remove our client from the client list
 			return false
 		case message := <-buffer:
-			c.SSEvent("", message)
+			c.JSON(200, message)
+			//c.SSEvent("", message)
 			return true
-		case err := <-subscriber.errors:
+		case err := <-errs:
 			subscriber.defunctClients <- buffer //Remove our client from the client list
 			c.SSEvent("ERROR:", err.Error())
 			return false
@@ -128,28 +131,28 @@ func (env *Env) Subscribe(c *gin.Context) {
 
 //Connect to the NATS remote host with backoff
 func (conn *NATSConnection) Connect() {
-	log.Println("Starting NATS Connection handler")
+	log.Info("Starting NATS Connection handler")
 	go func() {
 		f := backoff.Fibonacci()
 		f.Interval = 100 * time.Millisecond
 		f.MaxRetries = 60
 		connect := func() error {
 			cleanup := make(chan bool, 1)
-			log.Println("Connecting to NATS at: ", conn.NatsHost)
+			log.Info("Connecting to NATS at: ", conn.NatsHost)
 			nc, err := nats.Connect(conn.NatsHost)
 			if err != nil {
 				log.Fatal(err)
 			}
 			guid, err := uuid.NewRandom() //Create a new random unique identifier
 			if err != nil {
-				log.Println(err)
+				log.Error(err)
 				return err
 			}
-			log.Println("UUID: ", guid.String())
+			log.Info("UUID: ", guid.String())
 			sc, err := stan.Connect("nats-streaming", guid.String(), stan.NatsConn(nc),
 				stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
-					log.Println("Client Disconnected, sending cleanup signal")
-					log.Println(reason)
+					log.Info("Client Disconnected, sending cleanup signal")
+					log.Info(reason)
 					for _, sub := range conn.subscribers {
 						sub.connEstablished <- false
 					}
@@ -161,7 +164,7 @@ func (conn *NATSConnection) Connect() {
 			conn.Lock()
 			conn.Conn = sc //Save the connection
 			conn.Unlock()
-			log.Println("NATS Connected")
+			log.Info("NATS Connected")
 			if len(conn.subscribers) > 0 {
 				for _, sub := range conn.subscribers {
 					sub.connEstablished <- true //Let the subscriptions know the connections was established
@@ -185,19 +188,18 @@ func (conn *NATSConnection) GetSubscriber(topic string) (*Subscriber, error) {
 	sub, found := conn.subscribers[topic]
 	conn.Unlock()
 	if found {
-		log.Println("Subscriber found for topic: ", topic)
+		log.Info("Subscriber found for topic: ", topic)
 		return sub, nil
 	}
-	log.Println("No subscriber found for topic: ", topic)
-	log.Println("Creating new subscriber")
+	log.Info("No subscriber found for topic: ", topic)
+	log.Info("Creating new subscriber")
 	sub = &Subscriber{
 		topic:           topic,
 		connEstablished: make(chan bool, 3),
-		clients:         make(map[chan string]bool, 100),
+		clients:         make(map[chan string]bool, 10),
 		newClients:      make(chan (chan string)),
 		defunctClients:  make(chan (chan string)),
-		messages:        make(chan string, 100),
-		errors:          make(chan error, 1),
+		messages:        make(chan string, 10),
 	}
 	err := sub.Start(conn)
 	if err != nil {
@@ -212,34 +214,33 @@ func (conn *NATSConnection) GetSubscriber(topic string) (*Subscriber, error) {
 //Start process messages from the subscription and fan out to listeners, also handles subscription status
 func (subscriber *Subscriber) Start(conn *NATSConnection) error {
 	go func() {
-		log.Println("Starting new subscriber for topic: ", subscriber.topic)
+		log.Info("Starting new subscriber for topic: ", subscriber.topic)
 		sub, err := subscriber.Subscribe(conn) //First subscribe to my topic
 		if err != nil {
-			log.Println(err)
-			subscriber.errors <- err
+			log.Error(err)
 		}
 		subscriber.sub = sub
 		for {
 			select {
 			case s := <-subscriber.newClients:
 				subscriber.clients[s] = true
-				log.Println("Added new subscriber to: ", subscriber.topic)
+				log.Info("Added new subscriber to: ", subscriber.topic)
 			case s := <-subscriber.defunctClients:
 				delete(subscriber.clients, s)
-				log.Println("Removed subscriber from: ", subscriber.topic)
+				log.Info("Removed subscriber from: ", subscriber.topic)
 				if len(subscriber.clients) == 0 { //No more clients to service, fully cleanup
-					log.Println("No more clients, removing subscriber")
+					log.Info("No more clients, removing subscriber")
 					if subscriber.sub != nil {
 						conn.Lock() //Prevent race condition where new client can be added while unsubscribing
-						log.Println("Locked connection")
+						log.Info("Locked connection")
 						err := subscriber.sub.Unsubscribe()
 						if err != nil {
-							log.Println(err)
+							log.Error(err)
 						}
 						delete(conn.subscribers, subscriber.topic)
 						conn.Unlock()
-						log.Println("Released lock")
-						log.Println("Connection cleaned up, exiting subscriber")
+						log.Info("Released lock")
+						log.Info("Connection cleaned up, exiting subscriber")
 					}
 					return
 				}
@@ -253,7 +254,7 @@ func (subscriber *Subscriber) Start(conn *NATSConnection) error {
 				if est {
 					sub, err := subscriber.Subscribe(conn) //Connection was re-established, start working again
 					if err != nil {
-						subscriber.errors <- err
+						log.Error(err)
 					} else {
 						subscriber.sub = sub
 					}
@@ -268,22 +269,18 @@ func (subscriber *Subscriber) Start(conn *NATSConnection) error {
 
 //Subscribe to a given topic in NATS
 func (subscriber *Subscriber) Subscribe(conn *NATSConnection) (stan.Subscription, error) {
-	log.Println("Initializing callback")
-	log.Println("Subscription topic is: ", subscriber.topic)
+	log.Info("Initializing callback")
+	log.Info("Subscription topic is: ", subscriber.topic)
 	var datum = make(map[string]interface{}, 2)
 	sub, err := conn.Conn.Subscribe(subscriber.topic, func(m *stan.Msg) {
 		datum["timestamp"] = m.Timestamp
 		datum["data"] = json.RawMessage(m.Data)
 		data, err := json.Marshal(datum)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 		} else {
 			subscriber.messages <- string(data)
 		}
-		/*select {
-		case subscription.messages <- string(data):
-		default:
-		}*/
 	}, stan.StartWithLastReceived())
 	if err != nil {
 		return nil, err
@@ -294,12 +291,12 @@ func (subscriber *Subscriber) Subscribe(conn *NATSConnection) (stan.Subscription
 
 //MockGen Generates a mock stream of data
 func MockGen(c *gin.Context) {
-	log.Println("Mock Generator started")
+	log.Info("Mock Generator started")
 	var id = "3b-6cfc0958d2fb"
 	device := c.Param("device")
 	channel := c.Param("channel")
 	topic := "/" + device + "/" + channel
-	log.Println("Sending messages to topic: ", topic)
+	log.Info("Sending messages to topic: ", topic)
 	ticker := time.NewTicker(1 * time.Second)
 	var datum = make(map[string]interface{}, 2)
 	//var data = make(map[string]interface{}, 1)
@@ -316,9 +313,9 @@ func MockGen(c *gin.Context) {
 			temps["c"] = rand.Intn(150-20) + 20
 			datum["data"] = temps
 			jsondata, err := json.Marshal(datum)
-			log.Println("Generated message", string(jsondata))
+			log.Info("Generated message", string(jsondata))
 			if err != nil {
-				log.Println(err)
+				log.Error(err)
 			}
 			select {
 			case buffer <- string(jsondata):
@@ -329,11 +326,12 @@ func MockGen(c *gin.Context) {
 	c.Stream(func(w io.Writer) bool {
 		select {
 		case <-clientGone:
-			log.Println("Stopping generator")
+			log.Info("Stopping generator")
 			ticker.Stop()
 			return true
 		case message := <-buffer:
-			c.SSEvent("", message)
+			c.JSON(200, json.RawMessage(message))
+			//c.SSEvent("", message)
 			return true
 		}
 	})

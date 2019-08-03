@@ -1,12 +1,14 @@
 package main
 
 import (
-	"log"
-	"flag"
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
+	"flag"
+	"io/ioutil"
+	"log"
+	"net/http"
+
 	"github.com/charles-d-burton/grillbernetes/control-hub/messagebus"
+	"github.com/gin-gonic/gin"
 )
 
 var usageStr = `
@@ -25,8 +27,17 @@ func main() {
 	flag.StringVar(&natsHost, "nats-host", "", "Start the controller connecting to the defined NATS Streaming server")
 	flag.Parse()
 	go messagebus.Connect(natsHost)
-	http.HandleFunc("/", handleSend)
-	log.Fatal(http.ListenAndServe(":7777", nil))
+	router := gin.Default()
+	router.POST("/", func(c *gin.Context) {
+		var msg messagebus.Message
+		if err := c.ShouldBindJSON(&msg); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "accepted"})
+		messagebus.Publish(&msg)
+	})
+	router.Run(":7777")
 }
 
 func handleSend(rw http.ResponseWriter, req *http.Request) {

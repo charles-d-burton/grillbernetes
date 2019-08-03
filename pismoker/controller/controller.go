@@ -29,7 +29,6 @@ const (
 var (
 	readingQueue = make(chan Reading, 100)
 	signalChan   = make(chan os.Signal)
-	stopper      = make(chan bool)
 	receivers    = &Receivers{
 		make(chan chan Reading, 3),
 	}
@@ -98,7 +97,14 @@ func StartServer(natsHost, publishTopic, controlTopic string) error {
 //Stop receive the stop message signal from the OS and signal all goroutines to stop
 func Stop() {
 	sig := <-signalChan
-	close(stopper)
+	p := gpioreg.ByName(relayPwr)
+	if p == nil {
+		log.Fatal("Unable to locate relay control pin")
+	}
+	log.Println("Stopping relay control")
+	if err := p.Out(gpio.Low); err != nil {
+		log.Println(err)
+	}
 	log.Fatal("Exiting", sig)
 }
 
@@ -115,8 +121,6 @@ func ReadQueue(wg *sync.WaitGroup) {
 				log.Println("Sending to receiver")
 				receiver <- reading
 			}
-		case <-stopper:
-			return
 		}
 	}
 }
@@ -150,11 +154,7 @@ func ReadLoop(wg *sync.WaitGroup) {
 						reading.C = t
 						reading.F = CtoF(t)
 						readingQueue <- reading
-						//log.Println("Message sent to fanout")
 					}
-				case <-stopper:
-					close(readingQueue)
-					return nil
 				}
 			}
 		}
@@ -179,9 +179,6 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 	p := gpioreg.ByName(relayPwr)
 	if p == nil {
 		log.Fatal("Unable to locate relay control pin")
-	}
-	if p == nil {
-		log.Fatal("Relay pin not found")
 	}
 	pid := pidctrl.NewPIDController(pidState.Kp, pidState.Ki, pidState.Kd)
 	pid.SetOutputLimits(0, 1)
@@ -220,12 +217,6 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 			}
 			pid.Set(ctrlState.Temp)
 			pwrState = ctrlState.Pwr
-			/* case <-stopper:
-			log.Println("Stopping relay control")
-			if err := p.Out(gpio.Low); err != nil {
-				log.Println(err)
-			}
-			return */
 		}
 	}
 }

@@ -118,8 +118,8 @@ func (env *Env) Subscribe(c *gin.Context) {
 			subscriber.defunctClients <- buffer //Remove our client from the client list
 			return false
 		case message := <-buffer:
-			c.JSON(200, message)
-			//c.SSEvent("", message)
+			c.JSON(200, json.RawMessage(message))
+			c.String(200, "\n")
 			return true
 		case err := <-errs:
 			subscriber.defunctClients <- buffer //Remove our client from the client list

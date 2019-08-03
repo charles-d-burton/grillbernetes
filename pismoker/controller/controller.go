@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/felixge/pidctrl"
+	"github.com/jeffchao/backoff"
 	"github.com/nats-io/go-nats"
 	stan "github.com/nats-io/go-nats-streaming"
 	"github.com/yryz/ds18b20"
@@ -27,7 +28,7 @@ const (
 var (
 	readingQueue = make(chan Reading, 100)
 	signalChan   = make(chan os.Signal)
-	stopper      = make(chan struct{})
+	stopper      = make(chan bool)
 	receivers    Receivers
 	controlState ControlState
 	pidState     PIDState
@@ -219,42 +220,56 @@ func ReadQueue() {
 //PublishToNATS publish Reading to the NATS server
 func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGroup) {
 	defer wg.Done()
+	f := backoff.Fibonacci()
+	f.Interval = 100 * time.Millisecond
+	f.MaxRetries = 60
 	receiver := make(chan Reading, 100)
 	log.Println("Registering receiver")
 	receivers.Lock()
 	receivers.Receivers = append(receivers.Receivers, receiver)
 	receivers.Unlock()
-
-	log.Println("Connecting to NATS at: ", natsHost)
-	nc, err := nats.Connect(natsHost)
-	if err != nil {
-		log.Fatal(err)
-	}
-	sc, err := stan.Connect("nats-streaming", "smoker-client", stan.NatsConn(nc))
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("NATS Connected")
-	log.Println("Initializing callback")
-	_, err = sc.Subscribe(controlTopic, func(m *stan.Msg) {
-		ProcessNATSMessage(m)
-	}, stan.StartWithLastReceived())
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("Listening for messages on topic: ", controlTopic)
-	for {
-		select {
-		case reading := <-receiver:
-			data, err := json.Marshal(reading)
-			if err != nil {
-				log.Println(err)
-			}
-			sc.Publish(publishTopic, data)
-		case <-stopper:
-			log.Println("Stopping publish")
-			return
+	connect := func() error { //Closure to support backoff/retry
+		log.Println("Connecting to NATS at: ", natsHost)
+		nc, err := nats.Connect(natsHost)
+		if err != nil {
+			return err
 		}
+		sc, err := stan.Connect("nats-streaming", "smoker-client", stan.NatsConn(nc),
+			stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
+				log.Println("Client Disconnected, sending cleanup signal")
+				log.Println(reason)
+				stopper <- true //Fire the job to throw an error and retry
+			}))
+		if err != nil {
+			return err
+		}
+		log.Println("NATS Connected")
+		log.Println("Initializing callback")
+		sub, err := sc.Subscribe(controlTopic, func(m *stan.Msg) {
+			ProcessNATSMessage(m)
+		}, stan.StartWithLastReceived())
+		if err != nil {
+			return err
+		}
+		log.Println("Listening for messages on topic: ", controlTopic)
+		for {
+			select {
+			case reading := <-receiver: //Listen for temperature updates
+				data, err := json.Marshal(reading)
+				if err != nil {
+					log.Println(err)
+				}
+				sc.Publish(publishTopic, data)
+			case <-stopper:
+				log.Println("Stopping publish")
+				sub.Unsubscribe()
+				return errors.New("Publish stopped")
+			}
+		}
+	}
+	err := f.Retry(connect)
+	if err != nil {
+		log.Fatal(err) //Unable to reconnect, dying
 	}
 }
 
@@ -276,7 +291,6 @@ func ProcessNATSMessage(msg *stan.Msg) {
 		pidState.Started = true
 	}
 	pidState.ControlState = controlState
-
 }
 
 /********************************

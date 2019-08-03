@@ -30,7 +30,7 @@ var (
 	readingQueue = make(chan Reading, 100)
 	signalChan   = make(chan os.Signal)
 	receivers    = &Receivers{
-		make(chan chan Reading, 3),
+		make(chan chan *Reading, 3),
 	}
 	pidState = &PIDState{
 		Kp:           5,
@@ -65,7 +65,7 @@ type PIDState struct {
 
 //Receivers Store channels that receive fanout messages
 type Receivers struct {
-	Receivers chan chan Reading
+	Receivers chan chan *Reading
 }
 
 //Catch the interrupt and kill signals to clean up
@@ -119,8 +119,9 @@ func ReadQueue(wg *sync.WaitGroup) {
 			log.Println("Number of receivers is: ", len(receivers.Receivers))
 			for receiver := range receivers.Receivers {
 				log.Println("Sending to receiver")
-				receiver <- reading
+				receiver <- &reading
 			}
+			log.Println("Finished sending readings")
 		}
 	}
 }
@@ -154,6 +155,7 @@ func ReadLoop(wg *sync.WaitGroup) {
 						reading.C = t
 						reading.F = CtoF(t)
 						readingQueue <- reading
+						log.Println("Reading queue depth: ", len(readingQueue))
 					}
 				}
 			}
@@ -171,7 +173,7 @@ func ReadLoop(wg *sync.WaitGroup) {
 func RelayControlLoop(wg *sync.WaitGroup) {
 	defer wg.Done()
 	var started = false //Tracking if application just started
-	receiver := make(chan Reading, 100)
+	receiver := make(chan *Reading, 100)
 	log.Println("Registering relay receiver")
 
 	receivers.Receivers <- receiver
@@ -224,7 +226,7 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 //PublishToNATS publish Reading to the NATS server
 func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	receiver := make(chan Reading, 100)
+	receiver := make(chan *Reading, 100)
 	log.Println("Registering NATS Publish Receiver")
 	receivers.Receivers <- receiver
 	log.Println("NATS Publisher registered")

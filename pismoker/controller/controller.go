@@ -86,13 +86,8 @@ func StartServer(natsHost, publishTopic, controlTopic string) error {
 	}
 	go RelayControlLoop(&wg)
 	go ReadQueue()
-	for {
-		err := ReadLoop(&wg)
-		if err != nil {
-			log.Println(err)
-			break
-		}
-	}
+	go ReadLoop(&wg)
+
 	wg.Wait()
 	return nil
 }
@@ -226,7 +221,9 @@ func ReadQueue() {
 		select {
 		case reading := <-readingQueue:
 			log.Println(reading)
+			log.Println("Number of receivers is: ", len(receivers.Receivers))
 			for receiver := range receivers.Receivers {
+				log.Println("Sending to receiver")
 				select {
 				case receiver <- reading:
 				default:

@@ -123,7 +123,6 @@ func ReadLoop(wg *sync.WaitGroup) error {
 					for _, sensor := range sensors {
 						t, err := ds18b20.Temperature(sensor)
 						if err != nil {
-							errchan <- err
 							return err
 						}
 						var reading Reading
@@ -163,7 +162,7 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 	receivers.Receivers <- receiver
 	p := gpioreg.ByName(relayPwr)
 	if p == nil {
-		log.Fatal("Unable to locat relay control pin")
+		log.Fatal("Unable to locate relay control pin")
 	}
 	pidState.Lock()
 	pidState.Kp = 5
@@ -242,8 +241,9 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 	f.Interval = 100 * time.Millisecond
 	f.MaxRetries = 60
 	receiver := make(chan Reading, 100)
-	log.Println("Registering receiver")
+	log.Println("Registering NATS Publish Receiver")
 	receivers.Receivers <- receiver
+	log.Println("NATS Publisher registered")
 	go func() {
 		for {
 			connect := func() error { //Closure to support backoff/retry

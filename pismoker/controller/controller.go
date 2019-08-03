@@ -61,11 +61,6 @@ type PIDState struct {
 	ControlState chan *ControlState `json:"-"`
 }
 
-//Receivers Store channels that receive fanout messages
-type Receivers struct {
-	Receivers chan chan *Reading
-}
-
 //Catch the interrupt and kill signals to clean up
 func init() {
 	signal.Notify(signalChan, syscall.SIGTERM)

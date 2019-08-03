@@ -75,19 +75,20 @@ func init() {
 
 //StartServer starts the control server connecting to the defined nats host
 func StartServer(natsHost, publishTopic, controlTopic string) error {
-	var wg sync.WaitGroup
-	wg.Add(3)
-	go Stop()
-	go PublishToNATS(natsHost, publishTopic, controlTopic, &wg)
-
 	log.Println("Starting GPIO initialization")
 	if _, err := host.Init(); err != nil {
 		log.Fatal(err)
 	}
+	var wg sync.WaitGroup
+	go Stop()
+	wg.Add(1)
+	go PublishToNATS(natsHost, publishTopic, controlTopic, &wg)
+	wg.Add(1)
 	go RelayControlLoop(&wg)
-	go ReadQueue()
-	go ReadLoop(&wg)
-
+	wg.Add(1)
+	ReadLoop(&wg)
+	wg.Add(1)
+	ReadQueue(&wg)
 	wg.Wait()
 	return nil
 }
@@ -99,10 +100,27 @@ func Stop() {
 	log.Println("Exiting", sig)
 }
 
-//ReadLoop Read the sensor data in a loop, pass the data to the channel for fanout
-func ReadLoop(wg *sync.WaitGroup) error {
+//ReadQueue receive a Reading and fan it out
+func ReadQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
-	errchan := make(chan error)
+	for {
+		select {
+		case reading := <-readingQueue:
+			log.Println(reading)
+			log.Println("Number of receivers is: ", len(receivers.Receivers))
+			for receiver := range receivers.Receivers {
+				log.Println("Sending to receiver")
+				receiver <- reading
+			}
+		case <-stopper:
+			return
+		}
+	}
+}
+
+//ReadLoop Read the sensor data in a loop, pass the data to the channel for fanout
+func ReadLoop(wg *sync.WaitGroup) {
+	defer wg.Done()
 
 	go func() error {
 		f := backoff.Fibonacci()
@@ -118,7 +136,7 @@ func ReadLoop(wg *sync.WaitGroup) error {
 			for {
 				select {
 				case <-ticker.C:
-					log.Println("Scanning sensors")
+					//log.Println("Scanning sensors")
 					for _, sensor := range sensors {
 						t, err := ds18b20.Temperature(sensor)
 						if err != nil {
@@ -129,38 +147,32 @@ func ReadLoop(wg *sync.WaitGroup) error {
 						reading.C = t
 						reading.F = CtoF(t)
 						readingQueue <- reading
-						log.Println("Message sent to fanout")
+						//log.Println("Message sent to fanout")
 					}
+				case <-stopper:
+					close(readingQueue)
+					return nil
 				}
 			}
 		}
 
 		err := f.Retry(connect)
 		if err != nil {
-			errchan <- err
 			return err
 		}
 		return nil
 	}()
-	select {
-	case err := <-errchan:
-		log.Fatal(err)
-	case <-stopper:
-		log.Println("Closing read loop")
-		close(readingQueue)
-
-	}
-	return nil
 }
 
 //RelayControlLoop Receive a Reading and then peform the PID control
 func RelayControlLoop(wg *sync.WaitGroup) {
 	defer wg.Done()
-	var started = false
+	var started = false //Tracking if application just started
 	receiver := make(chan Reading, 100)
 	log.Println("Registering relay receiver")
 
 	receivers.Receivers <- receiver
+	log.Println("Relay receiver registered")
 	p := gpioreg.ByName(relayPwr)
 	if p == nil {
 		log.Fatal("Unable to locate relay control pin")
@@ -211,21 +223,6 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 				log.Println(err)
 			}
 			return
-		}
-	}
-}
-
-//ReadQueue receive a Reading and fan it out
-func ReadQueue() {
-	for {
-		select {
-		case reading := <-readingQueue:
-			log.Println(reading)
-			log.Println("Number of receivers is: ", len(receivers.Receivers))
-			for receiver := range receivers.Receivers {
-				log.Println("Sending to receiver")
-				receiver <- reading
-			}
 		}
 	}
 }

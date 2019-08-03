@@ -157,7 +157,7 @@ func ReadLoop(wg *sync.WaitGroup) error {
 func RelayControlLoop(wg *sync.WaitGroup) {
 	defer wg.Done()
 	var started = false
-	receiver := make(chan Reading, 10)
+	receiver := make(chan Reading, 100)
 	log.Println("Registering relay receiver")
 
 	receivers.Receivers <- receiver
@@ -224,11 +224,7 @@ func ReadQueue() {
 			log.Println("Number of receivers is: ", len(receivers.Receivers))
 			for receiver := range receivers.Receivers {
 				log.Println("Sending to receiver")
-				select {
-				case receiver <- reading:
-				default:
-					log.Println("Queue full")
-				}
+				receiver <- reading
 			}
 		}
 	}

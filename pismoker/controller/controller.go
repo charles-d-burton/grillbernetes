@@ -210,7 +210,7 @@ func ReadQueue() {
 			select {
 			case receiver <- reading:
 			default:
-				log.Println("Queue full")
+				//log.Println("Queue full")
 			}
 		}
 		receivers.Unlock()
@@ -228,48 +228,52 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 	receivers.Lock()
 	receivers.Receivers = append(receivers.Receivers, receiver)
 	receivers.Unlock()
-	connect := func() error { //Closure to support backoff/retry
-		log.Println("Connecting to NATS at: ", natsHost)
-		nc, err := nats.Connect(natsHost)
-		if err != nil {
-			return err
-		}
-		sc, err := stan.Connect("nats-streaming", "smoker-client", stan.NatsConn(nc),
-			stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
-				log.Println("Client Disconnected, sending cleanup signal")
-				log.Println(reason)
-				stopper <- true //Fire the job to throw an error and retry
-			}))
-		if err != nil {
-			return err
-		}
-		log.Println("NATS Connected")
-		log.Println("Initializing callback")
-		sub, err := sc.Subscribe(controlTopic, func(m *stan.Msg) {
-			ProcessNATSMessage(m)
-		}, stan.StartWithLastReceived())
-		if err != nil {
-			return err
-		}
-		log.Println("Listening for messages on topic: ", controlTopic)
-		for {
-			select {
-			case reading := <-receiver: //Listen for temperature updates
-				data, err := json.Marshal(reading)
-				if err != nil {
-					log.Println(err)
+	for {
+		connect := func() error { //Closure to support backoff/retry
+			log.Println("Connecting to NATS at: ", natsHost)
+			nc, err := nats.Connect(natsHost)
+			if err != nil {
+				return err
+			}
+			sc, err := stan.Connect("nats-streaming", "smoker-client", stan.NatsConn(nc),
+				stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
+					log.Println("Client Disconnected, sending cleanup signal")
+					log.Println(reason)
+					stopper <- true //Fire the job to throw an error and retry
+					return
+				}))
+			if err != nil {
+				return err
+			}
+			log.Println("NATS Connected")
+			log.Println("Initializing callback")
+			sub, err := sc.Subscribe(controlTopic, func(m *stan.Msg) {
+				ProcessNATSMessage(m)
+			}, stan.StartWithLastReceived())
+			if err != nil {
+				return err
+			}
+			log.Println("Listening for messages on topic: ", controlTopic)
+			for {
+				select {
+				case reading := <-receiver: //Listen for temperature updates
+					data, err := json.Marshal(reading)
+					if err != nil {
+						log.Println(err)
+					}
+					sc.Publish(publishTopic, data)
+				case <-stopper:
+					log.Println("Stopping publish")
+					sub.Unsubscribe()
+					return errors.New("Publish stopped")
 				}
-				sc.Publish(publishTopic, data)
-			case <-stopper:
-				log.Println("Stopping publish")
-				sub.Unsubscribe()
-				return errors.New("Publish stopped")
 			}
 		}
-	}
-	err := f.Retry(connect)
-	if err != nil {
-		log.Fatal(err) //Unable to reconnect, dying
+		err := f.Retry(connect)
+		if err != nil {
+			log.Println(err) //Unable to reconnect, dying
+		}
+		f.Reset()
 	}
 }
 

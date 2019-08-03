@@ -32,8 +32,11 @@ var (
 	receivers    = &Receivers{
 		make(chan (chan Reading), 3),
 	}
-	controlState ControlState
-	pidState     PIDState
+	pidState = &PIDState{
+		Kp: 5,
+		Ki: 3,
+		Kd: 3,
+	}
 )
 
 //ControlState Represent the runtime state of the smoker
@@ -52,13 +55,11 @@ type Reading struct {
 
 //PIDState Represent the state of the PID controller
 type PIDState struct {
-	sync.Mutex
-	Started      bool         `json:"started"`
-	Kp           float64      `json:"kp"`
-	Ki           float64      `json:"ki"`
-	Kd           float64      `json:"kd"`
-	Window       int          `json:"window"`
-	ControlState ControlState `json:"-"`
+	Kp           float64            `json:"kp"`
+	Ki           float64            `json:"ki"`
+	Kd           float64            `json:"kd"`
+	Window       int                `json:"window"`
+	ControlState chan *ControlState `json:"-"`
 }
 
 //Receivers Store channels that receive fanout messages
@@ -155,9 +156,10 @@ func ReadLoop(wg *sync.WaitGroup) error {
 	return nil
 }
 
-//Receive a Reading and then peform the PID control
+//RelayControlLoop Receive a Reading and then peform the PID control
 func RelayControlLoop(wg *sync.WaitGroup) {
 	defer wg.Done()
+	var started = false
 	receiver := make(chan Reading, 10)
 	log.Println("Registering relay receiver")
 
@@ -166,13 +168,9 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 	if p == nil {
 		log.Fatal("Unable to locate relay control pin")
 	}
-	pidState.Lock()
-	pidState.Kp = 5
-	pidState.Ki = 3
-	pidState.Kd = 3
+
 	//pidState.Window = 1000
 	//pidState.ControlState = 24
-	pidState.Unlock()
 
 	if p == nil {
 		log.Fatal("Relay pin not found")
@@ -180,12 +178,7 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 	pid := pidctrl.NewPIDController(pidState.Kp, pidState.Ki, pidState.Kd)
 	pid.SetOutputLimits(0, 1)
 	pwrState := false
-
 	for {
-		pidState.Lock()
-		pid.Set(pidState.ControlState.Temp)
-		pwrState = pidState.ControlState.Pwr
-		pidState.Unlock()
 		select {
 		case reading := <-receiver:
 			log.Println("Received temperature update")
@@ -211,6 +204,14 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 					log.Println(err)
 				}
 			}
+		case ctrlState := <-pidState.ControlState:
+			if !started {
+				log.Println("Initial control message, defaulting to off")
+				ctrlState.Pwr = false
+				started = true
+			}
+			pid.Set(ctrlState.Temp)
+			pwrState = ctrlState.Pwr
 		case <-stopper:
 			log.Println("Stopping relay control")
 			if err := p.Out(gpio.Low); err != nil {
@@ -224,13 +225,15 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 //ReadQueue receive a Reading and fan it out
 func ReadQueue() {
 	for {
-		reading := <-readingQueue
-		log.Println(reading)
-		for receiver := range receivers.Receivers {
-			select {
-			case receiver <- reading:
-			default:
-				//log.Println("Queue full")
+		select {
+		case reading := <-readingQueue:
+			log.Println(reading)
+			for receiver := range receivers.Receivers {
+				select {
+				case receiver <- reading:
+				default:
+					//log.Println("Queue full")
+				}
 			}
 		}
 	}
@@ -277,6 +280,7 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 				for {
 					select {
 					case reading := <-receiver: //Listen for temperature updates
+						log.Println("Publishing Reading to NATS", reading)
 						data, err := json.Marshal(reading)
 						if err != nil {
 							log.Println(err)
@@ -299,6 +303,7 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 		}
 	}()
 	for {
+		log.Println("NATS Publisher Waiting for update")
 		select {
 		case <-stopper:
 			log.Println("Recieved stop signal")
@@ -309,7 +314,6 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 
 //ProcessNATSMessage process a control message from the NATS server
 func ProcessNATSMessage(msg *stan.Msg) {
-	defer pidState.Unlock() //Make sure the pidstate is unlocked in case of failures
 	log.Println("Received control state update")
 	log.Println(msg)
 	var controlState ControlState
@@ -317,19 +321,12 @@ func ProcessNATSMessage(msg *stan.Msg) {
 	if err != nil {
 		log.Println(err)
 	}
-	pidState.Lock()
-	//Keeps the machine from powering on right away
-	if !pidState.Started {
-		log.Println("Initial startup message, defaulting to off")
-		controlState.Pwr = false
-		pidState.Started = true
-	}
-	pidState.ControlState = controlState
+	pidState.ControlState <- &controlState
 }
 
 /********************************
-Helpers
- ********************************/
+Helper Functions
+********************************/
 
 //ResetPin reset a passed in GPIO pin
 func ResetPin(p gpio.PinIO) error {

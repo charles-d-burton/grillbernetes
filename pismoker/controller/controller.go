@@ -231,7 +231,7 @@ func ReadQueue() {
 				select {
 				case receiver <- reading:
 				default:
-					//log.Println("Queue full")
+					log.Println("Queue full")
 				}
 			}
 		}

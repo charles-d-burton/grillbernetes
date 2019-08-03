@@ -61,8 +61,7 @@ type PIDState struct {
 
 //Receivers Store channels that receive fanout messages
 type Receivers struct {
-	sync.Mutex
-	Receivers []chan Reading
+	Receivers chan chan Reading
 }
 
 //Catch the interrupt and kill signals to clean up
@@ -105,33 +104,54 @@ func Stop() {
 //ReadLoop Read the sensor data in a loop, pass the data to the channel for fanout
 func ReadLoop(wg *sync.WaitGroup) error {
 	defer wg.Done()
-	log.Println("Initializing sensors")
-	sensors, err := ds18b20.Sensors()
-	if err != nil {
-		log.Fatal(err)
-	}
-	ticker := time.NewTicker(1 * time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			for _, sensor := range sensors {
-				t, err := ds18b20.Temperature(sensor)
-				if err != nil {
-					return nil
-				}
-				var reading Reading
-				reading.ID = sensor
-				reading.C = t
-				reading.F = CtoF(t)
-				readingQueue <- reading
+	errchan := make(chan error)
 
+	go func() error {
+		f := backoff.Fibonacci()
+		f.Interval = 10 * time.Millisecond
+		f.MaxRetries = 10
+		connect := func() error { //Closure to support backoff/retry
+			log.Println("Initializing sensors")
+			sensors, err := ds18b20.Sensors()
+			if err != nil {
+				log.Fatal(err)
 			}
-		case <-stopper:
-			log.Println("Closing read loop")
-			close(readingQueue)
-			return errors.New("Stopping read loop")
+			ticker := time.NewTicker(1 * time.Second)
+			for {
+				select {
+				case <-ticker.C:
+					for _, sensor := range sensors {
+						t, err := ds18b20.Temperature(sensor)
+						if err != nil {
+							errchan <- err
+							return err
+						}
+						var reading Reading
+						reading.ID = sensor
+						reading.C = t
+						reading.F = CtoF(t)
+						readingQueue <- reading
+						f.Reset()
+					}
+				}
+			}
 		}
+
+		err := f.Retry(connect)
+		if err != nil {
+			errchan <- err
+			return err
+		}
+		return nil
+	}()
+	select {
+	case err := <-errchan:
+		log.Fatal(err)
+	case <-stopper:
+		log.Println("Closing read loop")
+		close(readingQueue)
 	}
+	return nil
 }
 
 //Receive a Reading and then peform the PID control
@@ -139,9 +159,8 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 	defer wg.Done()
 	receiver := make(chan Reading, 10)
 	log.Println("Registering relay receiver")
-	receivers.Lock()
-	receivers.Receivers = append(receivers.Receivers, receiver)
-	receivers.Unlock()
+
+	receivers.Receivers <- receiver
 	p := gpioreg.ByName(relayPwr)
 	if p == nil {
 		log.Fatal("Unable to locat relay control pin")
@@ -177,6 +196,7 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 					log.Println("Turning off relay")
 					if err := p.Out(gpio.Low); err != nil {
 						log.Println(err)
+
 					}
 				} else {
 					log.Println("Turning on relay")
@@ -205,15 +225,13 @@ func ReadQueue() {
 	for {
 		reading := <-readingQueue
 		log.Println(reading)
-		receivers.Lock()
-		for _, receiver := range receivers.Receivers {
+		for receiver := range receivers.Receivers {
 			select {
 			case receiver <- reading:
 			default:
 				//log.Println("Queue full")
 			}
 		}
-		receivers.Unlock()
 	}
 }
 
@@ -225,9 +243,7 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 	f.MaxRetries = 60
 	receiver := make(chan Reading, 100)
 	log.Println("Registering receiver")
-	receivers.Lock()
-	receivers.Receivers = append(receivers.Receivers, receiver)
-	receivers.Unlock()
+	receivers.Receivers <- receiver
 	go func() {
 		for {
 			connect := func() error { //Closure to support backoff/retry
@@ -268,6 +284,8 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 						log.Println("Stopping publish")
 						sub.Unsubscribe()
 						return errors.New("Publish stopped")
+					case <-stopper:
+						return nil
 					}
 				}
 			}
@@ -312,11 +330,10 @@ Helpers
  ********************************/
 
 //ResetPin reset a passed in GPIO pin
-func ResetPin(pin string) error {
+func ResetPin(p gpio.PinIO) error {
 	log.Println("Resetting pin, setting to low")
-	p := gpioreg.ByName(pin)
 	if p == nil {
-		return errors.New("Failed to get Pin: " + pin)
+		return errors.New("Failed to get Pin: " + p.Name())
 	}
 	if err := p.Out(gpio.Low); err != nil {
 		return err

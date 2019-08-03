@@ -29,7 +29,7 @@ const (
 var (
 	readingQueue = make(chan Reading, 100)
 	signalChan   = make(chan os.Signal)
-	receivers    = make(chan chan *Reading, 3)
+	receivers    = make(chan chan *Reading)
 	pidState     = &PIDState{
 		Kp:           5,
 		Ki:           3,

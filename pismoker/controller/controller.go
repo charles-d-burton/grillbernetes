@@ -133,7 +133,6 @@ func ReadLoop(wg *sync.WaitGroup) error {
 						reading.C = t
 						reading.F = CtoF(t)
 						readingQueue <- reading
-						f.Reset()
 					}
 				}
 			}

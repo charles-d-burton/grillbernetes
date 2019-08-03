@@ -5,22 +5,26 @@ import (
 	"errors"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/jeffchao/backoff"
 	"github.com/nats-io/go-nats"
 	stan "github.com/nats-io/go-nats-streaming"
+	"github.com/sirupsen/logrus"
 )
 
 var (
 	pubs        = make(chan *Message, 100)
 	isConnected = false
+	log         = logrus.New()
 )
 
 //Message data to publish to server
 type Message struct {
 	Topic string          `json:"topic"`
 	Data  json.RawMessage `json:"data"`
+}
+
+func init() {
+	log.SetFormatter(&logrus.JSONFormatter{})
 }
 
 //Connect handles connections to the NATS Streaming server

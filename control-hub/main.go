@@ -6,17 +6,23 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/charles-d-burton/grillbernetes/control-hub/messagebus"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
-var usageStr = `
+var (
+	usageStr = `
 Usage: pismoker [options]
 Options:
 	-nh, --nats-host       <NATSHost>     Start the controller connecting to the defined NATS Streaming server
 `
+	log = logrus.New()
+)
+
+func init() {
+	log.SetFormatter(&logrus.JSONFormatter{})
+}
 
 func usage() {
 	log.Fatalf(usageStr)

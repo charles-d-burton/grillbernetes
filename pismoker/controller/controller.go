@@ -33,9 +33,10 @@ var (
 		make(chan chan Reading, 3),
 	}
 	pidState = &PIDState{
-		Kp: 5,
-		Ki: 3,
-		Kd: 3,
+		Kp:           5,
+		Ki:           3,
+		Kd:           3,
+		ControlState: make(chan *ControlState, 10),
 	}
 )
 
@@ -295,13 +296,15 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 //ProcessNATSMessage process a control message from the NATS server
 func ProcessNATSMessage(msg *stan.Msg) {
 	log.Println("Received control state update")
-	log.Println(msg)
+	log.Println(string(msg.Data))
 	var controlState ControlState
 	err := json.Unmarshal(msg.Data, &controlState)
 	if err != nil {
 		log.Println(err)
 	}
+	log.Println("Publishing control state update")
 	pidState.ControlState <- &controlState
+	log.Println("")
 }
 
 /********************************

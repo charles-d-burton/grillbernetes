@@ -219,12 +219,12 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 			}
 			pid.Set(ctrlState.Temp)
 			pwrState = ctrlState.Pwr
-		case <-stopper:
+		/* case <-stopper:
 			log.Println("Stopping relay control")
 			if err := p.Out(gpio.Low); err != nil {
 				log.Println(err)
 			}
-			return
+			return */
 		}
 	}
 }
@@ -249,7 +249,12 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 					log.Println(err)
 					return err
 				}
-				sc, err := stan.Connect("nats-streaming", "smoker-client", stan.NatsConn(nc),
+				guid, err := uuid.NewRandom() //Create a new random unique identifier
+				if err != nil {
+					log.Println(err)
+					return err
+				}
+				sc, err := stan.Connect("nats-streaming", guid, stan.NatsConn(nc),
 					stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
 						log.Println("Client Disconnected, sending cleanup signal")
 						log.Println(reason)

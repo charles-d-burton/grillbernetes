@@ -29,10 +29,8 @@ const (
 var (
 	readingQueue = make(chan Reading, 100)
 	signalChan   = make(chan os.Signal)
-	receivers    = &Receivers{
-		make(chan chan *Reading, 3),
-	}
-	pidState = &PIDState{
+	receivers    = make(chan chan *Reading, 3)
+	pidState     = &PIDState{
 		Kp:           5,
 		Ki:           3,
 		Kd:           3,
@@ -116,8 +114,8 @@ func ReadQueue(wg *sync.WaitGroup) {
 		select {
 		case reading := <-readingQueue:
 			log.Println(reading)
-			log.Println("Number of receivers is: ", len(receivers.Receivers))
-			for receiver := range receivers.Receivers {
+			log.Println("Number of receivers is: ", len(receivers))
+			for receiver := range receivers {
 				log.Println("Sending to receiver")
 				receiver <- &reading
 			}
@@ -176,7 +174,7 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 	receiver := make(chan *Reading, 100)
 	log.Println("Registering relay receiver")
 
-	receivers.Receivers <- receiver
+	receivers <- receiver
 	log.Println("Relay receiver registered")
 	p := gpioreg.ByName(relayPwr)
 	if p == nil {
@@ -228,7 +226,7 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 	defer wg.Done()
 	receiver := make(chan *Reading, 100)
 	log.Println("Registering NATS Publish Receiver")
-	receivers.Receivers <- receiver
+	receivers <- receiver
 	log.Println("NATS Publisher registered")
 	go func() {
 		f := backoff.Fibonacci()

@@ -11,4 +11,5 @@ require (
 	github.com/nats-io/nats-server v1.4.1 // indirect
 	github.com/nats-io/nats-streaming-server v0.15.1 // indirect
 	github.com/prometheus/client_golang v1.0.0 // indirect
+	github.com/sirupsen/logrus v1.4.2 // indirect
 )

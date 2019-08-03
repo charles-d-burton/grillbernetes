@@ -3,8 +3,9 @@ package messagebus
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/jeffchao/backoff"
 	"github.com/nats-io/go-nats"
@@ -16,33 +17,36 @@ var (
 	isConnected = false
 )
 
+//Message data to publish to server
 type Message struct {
 	Topic string          `json:"topic"`
 	Data  json.RawMessage `json:"data"`
 }
 
+//Connect handles connections to the NATS Streaming server
 func Connect(host string) {
 	f := backoff.Fibonacci()
-	f.Interval = 1 * time.Millisecond
+	f.Interval = 100 * time.Millisecond
 	f.MaxRetries = 20
 	cleanup := make(chan error, 1)
 	for {
 		connect := func() error {
-			log.Println("Connecting to NATS at: ", host)
+			log.Info("Connecting to NATS at: ", host)
 			nc, err := nats.Connect(host)
 			if err != nil {
 				return err
 			}
 			sc, err := stan.Connect("nats-streaming", "smoker-client", stan.NatsConn(nc),
 				stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
-					log.Println(reason)
+					log.Info(reason)
 					cleanup <- reason
+					return
 				}))
 			if err != nil {
 				return err
 			}
 			isConnected = true
-			log.Println("Conntected to NATS Streaming server: ", host)
+			log.Info("Conntected to NATS Streaming server: ", host)
 			select {
 			case message := <-pubs:
 				err := sc.Publish(message.Topic, message.Data)
@@ -56,16 +60,18 @@ func Connect(host string) {
 		}
 		err := f.Retry(connect)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 		}
 		f.Reset()
 	}
 }
 
+//Publish takes a message and puts it on the publish queue
 func Publish(message *Message) {
 	pubs <- message
 }
 
+//Subscribe currently unused
 func Subscribe(topic string) {
 
 }

@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"flag"
 	"io/ioutil"
-	"log"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/charles-d-burton/grillbernetes/control-hub/messagebus"
 	"github.com/gin-gonic/gin"
@@ -49,7 +50,7 @@ func handleSend(rw http.ResponseWriter, req *http.Request) {
 	var msg messagebus.Message
 	err = json.Unmarshal(body, &msg)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 	messagebus.Publish(&msg)
 }

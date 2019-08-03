@@ -331,6 +331,7 @@ func MockGen(c *gin.Context) {
 			return true
 		case message := <-buffer:
 			c.JSON(200, json.RawMessage(message))
+			c.String(200, "\n")
 			//c.SSEvent("", message)
 			return true
 		}

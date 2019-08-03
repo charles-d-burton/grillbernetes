@@ -123,6 +123,7 @@ func ReadLoop(wg *sync.WaitGroup) error {
 			for {
 				select {
 				case <-ticker.C:
+					log.Println("Scanning sensors")
 					for _, sensor := range sensors {
 						t, err := ds18b20.Temperature(sensor)
 						if err != nil {
@@ -133,6 +134,7 @@ func ReadLoop(wg *sync.WaitGroup) error {
 						reading.C = t
 						reading.F = CtoF(t)
 						readingQueue <- reading
+						log.Println("Message sent to fanout")
 					}
 				}
 			}
@@ -151,6 +153,7 @@ func ReadLoop(wg *sync.WaitGroup) error {
 	case <-stopper:
 		log.Println("Closing read loop")
 		close(readingQueue)
+
 	}
 	return nil
 }
@@ -167,10 +170,6 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 	if p == nil {
 		log.Fatal("Unable to locate relay control pin")
 	}
-
-	//pidState.Window = 1000
-	//pidState.ControlState = 24
-
 	if p == nil {
 		log.Fatal("Relay pin not found")
 	}

@@ -29,7 +29,9 @@ var (
 	readingQueue = make(chan Reading, 100)
 	signalChan   = make(chan os.Signal)
 	stopper      = make(chan bool)
-	receivers    Receivers
+	receivers    = &Receivers{
+		make(chan (chan Reading), 3),
+	}
 	controlState ControlState
 	pidState     PIDState
 )
@@ -237,14 +239,14 @@ func ReadQueue() {
 //PublishToNATS publish Reading to the NATS server
 func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	f := backoff.Fibonacci()
-	f.Interval = 100 * time.Millisecond
-	f.MaxRetries = 60
 	receiver := make(chan Reading, 100)
 	log.Println("Registering NATS Publish Receiver")
 	receivers.Receivers <- receiver
 	log.Println("NATS Publisher registered")
 	go func() {
+		f := backoff.Fibonacci()
+		f.Interval = 100 * time.Millisecond
+		f.MaxRetries = 60
 		for {
 			connect := func() error { //Closure to support backoff/retry
 				dischan := make(chan bool, 1)

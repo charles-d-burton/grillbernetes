@@ -30,7 +30,7 @@ var (
 	signalChan   = make(chan os.Signal)
 	stopper      = make(chan bool)
 	receivers    = &Receivers{
-		make(chan (chan Reading), 3),
+		make(chan chan Reading, 3),
 	}
 	pidState = &PIDState{
 		Kp: 5,
@@ -97,13 +97,14 @@ func StartServer(natsHost, publishTopic, controlTopic string) error {
 func Stop() {
 	sig := <-signalChan
 	close(stopper)
-	log.Println("Exiting", sig)
+	log.Fatal("Exiting", sig)
 }
 
 //ReadQueue receive a Reading and fan it out
 func ReadQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
+		log.Println("Waiting for new reading")
 		select {
 		case reading := <-readingQueue:
 			log.Println(reading)
@@ -237,13 +238,14 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 	go func() {
 		f := backoff.Fibonacci()
 		f.Interval = 100 * time.Millisecond
-		f.MaxRetries = 60
+		f.MaxRetries = 10
 		for {
 			connect := func() error { //Closure to support backoff/retry
 				dischan := make(chan bool, 1)
 				log.Println("Connecting to NATS at: ", natsHost)
 				nc, err := nats.Connect(natsHost)
 				if err != nil {
+					log.Println(err)
 					return err
 				}
 				sc, err := stan.Connect("nats-streaming", "smoker-client", stan.NatsConn(nc),
@@ -278,8 +280,6 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 						log.Println("Stopping publish")
 						sub.Unsubscribe()
 						return errors.New("Publish stopped")
-					case <-stopper:
-						return nil
 					}
 				}
 			}
@@ -290,14 +290,6 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 			f.Reset()
 		}
 	}()
-	for {
-		log.Println("NATS Publisher Waiting for update")
-		select {
-		case <-stopper:
-			log.Println("Recieved stop signal")
-			return
-		}
-	}
 }
 
 //ProcessNATSMessage process a control message from the NATS server

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/felixge/pidctrl"
+	"github.com/google/uuid"
 	"github.com/jeffchao/backoff"
 	"github.com/nats-io/go-nats"
 	stan "github.com/nats-io/go-nats-streaming"
@@ -219,7 +220,7 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 			}
 			pid.Set(ctrlState.Temp)
 			pwrState = ctrlState.Pwr
-		/* case <-stopper:
+			/* case <-stopper:
 			log.Println("Stopping relay control")
 			if err := p.Out(gpio.Low); err != nil {
 				log.Println(err)
@@ -254,7 +255,7 @@ func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGro
 					log.Println(err)
 					return err
 				}
-				sc, err := stan.Connect("nats-streaming", guid, stan.NatsConn(nc),
+				sc, err := stan.Connect("nats-streaming", guid.String(), stan.NatsConn(nc),
 					stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
 						log.Println("Client Disconnected, sending cleanup signal")
 						log.Println(reason)

@@ -29,12 +29,14 @@ const (
 var (
 	readingQueue = make(chan Reading, 100)
 	signalChan   = make(chan os.Signal)
-	receivers    = make(chan chan *Reading)
 	pidState     = &PIDState{
 		Kp:           5,
 		Ki:           3,
 		Kd:           3,
 		ControlState: make(chan *ControlState, 10),
+	}
+	receivers = &Receivers{
+		Receivers: make([]chan Reading, 2),
 	}
 )
 
@@ -59,6 +61,12 @@ type PIDState struct {
 	Kd           float64            `json:"kd"`
 	Window       int                `json:"window"`
 	ControlState chan *ControlState `json:"-"`
+}
+
+//Receivers place holder to fan out to receivers
+type Receivers struct {
+	sync.Mutex
+	Receivers []chan Reading
 }
 
 //Catch the interrupt and kill signals to clean up
@@ -105,17 +113,14 @@ func Stop() {
 func ReadQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
-		log.Println("Waiting for new reading")
 		select {
 		case reading := <-readingQueue:
 			log.Println(reading)
-			log.Println("Number of receivers is: ", len(receivers))
-			/* for receiver := range receivers {
-				log.Println("Sending to receiver, ", len(receiver))
-
-				//receiver <- &reading
-			} */
-			log.Println("Finished sending readings")
+			receivers.Lock()
+			for _, receiver := range receivers.Receivers {
+				receiver <- reading
+			}
+			receivers.Unlock()
 		}
 	}
 }
@@ -149,7 +154,6 @@ func ReadLoop(wg *sync.WaitGroup) {
 						reading.C = t
 						reading.F = CtoF(t)
 						readingQueue <- reading
-						log.Println("Reading queue depth: ", len(readingQueue))
 					}
 				}
 			}
@@ -167,10 +171,12 @@ func ReadLoop(wg *sync.WaitGroup) {
 func RelayControlLoop(wg *sync.WaitGroup) {
 	defer wg.Done()
 	var started = false //Tracking if application just started
-	receiver := make(chan *Reading, 100)
+	receiver := make(chan Reading, 100)
 	log.Println("Registering relay receiver")
 
-	receivers <- receiver
+	receivers.Lock()
+	receivers.Receivers = append(receivers.Receivers, receiver)
+	receivers.Unlock()
 	log.Println("Relay receiver registered")
 	p := gpioreg.ByName(relayPwr)
 	if p == nil {
@@ -220,9 +226,11 @@ func RelayControlLoop(wg *sync.WaitGroup) {
 //PublishToNATS publish Reading to the NATS server
 func PublishToNATS(natsHost, publishTopic, controlTopic string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	receiver := make(chan *Reading, 100)
+	receiver := make(chan Reading, 100)
 	log.Println("Registering NATS Publish Receiver")
-	receivers <- receiver
+	receivers.Lock()
+	receivers.Receivers = append(receivers.Receivers, receiver)
+	receivers.Unlock()
 	log.Println("NATS Publisher registered")
 	go func() {
 		f := backoff.Fibonacci()

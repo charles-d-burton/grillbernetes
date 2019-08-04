@@ -110,11 +110,11 @@ func ReadQueue(wg *sync.WaitGroup) {
 		case reading := <-readingQueue:
 			log.Println(reading)
 			log.Println("Number of receivers is: ", len(receivers))
-			for receiver := range receivers {
+			/* for receiver := range receivers {
 				log.Println("Sending to receiver, ", len(receiver))
 
 				//receiver <- &reading
-			}
+			} */
 			log.Println("Finished sending readings")
 		}
 	}

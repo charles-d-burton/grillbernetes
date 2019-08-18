@@ -91,12 +91,13 @@ func main() {
 		nc.Connect()
 		env := &Env{nc}
 		router.GET("/events/:device/:channel", env.Subscribe)
+		router.GET("/stream/:device/:channel", env.SubscribeRaw)
 		router.Run(":7777")
 	}
 
 }
 
-//Subscribe gin context to subscribe to an event stream
+//Subscribe gin context to subscribe to an event stream returning json
 func (env *Env) Subscribe(c *gin.Context) {
 	device := c.Param("device")
 	channel := c.Param("channel")
@@ -124,6 +125,38 @@ func (env *Env) Subscribe(c *gin.Context) {
 		case err := <-errs:
 			subscriber.defunctClients <- buffer //Remove our client from the client list
 			c.SSEvent("ERROR:", err.Error())
+			return false
+		}
+	})
+}
+
+//SubscribeRaw to RAW data stream using pure SSE
+func (env *Env) SubscribeRaw(c *gin.Context) {
+	device := c.Param("device")
+	channel := c.Param("channel")
+	topic := device + "-" + channel
+	log.Info("Subscribing to topic: ", topic)
+	subscriber, err := env.natsConn.GetSubscriber(topic)
+	if err != nil {
+		c.AbortWithError(404, err)
+		return
+	}
+	log.Info("Got subscriber from NATS Connection")
+	buffer := make(chan string, 100)
+	errs := make(chan error, 1)
+	subscriber.newClients <- buffer //Add our new client to the recipient list
+	clientGone := c.Writer.CloseNotify()
+	c.Stream(func(w io.Writer) bool {
+		select {
+		case <-clientGone:
+			subscriber.defunctClients <- buffer //Remove our client from the client list
+			return false
+		case message := <-buffer:
+			c.SSEvent("message", json.RawMessage(message))
+			return true
+		case err := <-errs:
+			subscriber.defunctClients <- buffer //Remove our client from the client list
+			c.SSEvent("ERROR", err.Error())
 			return false
 		}
 	})

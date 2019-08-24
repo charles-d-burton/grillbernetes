@@ -16,11 +16,11 @@ jobs:
     - name: Build Events
       env:
         DOCKER_CLI_EXPERIMENTAL: "enabled"
-      run: cd events && docker build . --file Dockerfile --build-arg GOARCH=${{ matrix.arch }} -t events:${{ matrix.arch }}
+      run: cd events && docker build . --file Dockerfile --build-arg GOARCH=${{ matrix.arch }} -t charlesdburton/grillbernetes-events:${{ matrix.arch }}
     - name: Build Manifest
       env:
         DOCKER_CLI_EXPERIMENTAL: "enabled"
-      run: docker manifest create --amend "charlesdburton/grillbernetes-events"
+      run: docker manifest create --amend "charlesdburton/grillbernetes-events:latest" charlesdburton/grillbernetes-events:${{ matrix.arch }}
     - name: Annotate Manifest
       env:
         DOCKER_CLI_EXPERIMENTAL: "enabled"

@@ -6,12 +6,22 @@ on:
     - master
 
 jobs:
-
-  build:
- 
-    runs-on: ubuntu-latest
- 
+  events:
+    strategy:
+      matrix:
+        arch: ["arm64", "arm", "amd64"]
+    runs-on: ubuntu-latest 
     steps:
     - uses: actions/checkout@v1
-    - name: Build the Docker image
-      run: cd events && docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+    - name: Build Events
+      env:
+        DOCKER_CLI_EXPERIMENTAL: "enabled"
+      run: cd events && docker build . --file Dockerfile --build-arg GOARCH=${{ matrix.arch }} -t events:${{ matrix.arch }}
+    - name: Build Manifest
+      env:
+        DOCKER_CLI_EXPERIMENTAL: "enabled"
+      run: docker manifest create --amend "charlesdburton/grillbernetes-events"
+    - name: Annotate Manifest
+      env:
+        DOCKER_CLI_EXPERIMENTAL: "enabled"
+      run: docker manifest annotate --arch ${{ matrix.arch }} "charlesdburton/grillbernetes-events" charlesdburton/grillbernetes-events:${{ matrix.arch }} 

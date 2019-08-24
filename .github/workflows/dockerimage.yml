@@ -19,6 +19,10 @@ jobs:
       env:
         DOCKER_CLI_EXPERIMENTAL: "enabled"
       run: cd events && docker build . --file Dockerfile --build-arg GOARCH=${{ matrix.arch }} -t charlesdburton/grillbernetes-events:${{ matrix.arch }}
+    - name: Push Docker Images
+      env:
+        DOCKER_CLI_EXPERIMENTAL: "enabled"
+      run: docker push charlesdburton/grillbernetes-events:${{ matrix.arch }}
     - name: Build Manifest
       env:
         DOCKER_CLI_EXPERIMENTAL: "enabled"
@@ -27,7 +31,7 @@ jobs:
       env:
         DOCKER_CLI_EXPERIMENTAL: "enabled"
       run: docker manifest annotate --arch ${{ matrix.arch }} "charlesdburton/grillbernetes-events" charlesdburton/grillbernetes-events:${{ matrix.arch }} 
-    - name: Push images
+    - name: Push Manifest
       env:
         DOCKER_CLI_EXPERIMENTAL: "enabled"
       run: docker manifest push charlesdburton/grillbernetes-events

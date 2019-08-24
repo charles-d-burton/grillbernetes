@@ -6,7 +6,7 @@ on:
     - master
 
 jobs:
-  events:
+  build-events:
     strategy:
       matrix:
         arch: ["arm64", "arm", "amd64"]
@@ -18,4 +18,25 @@ jobs:
     - name: Build Events
       env:
         DOCKER_CLI_EXPERIMENTAL: "enabled"
-      run: ./build.sh
+      run: cd events && docker build . --file Dockerfile --build-arg GOARCH=${{ matrix.arch }} -t ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events:${{ matrix.arch }}
+    - name: Push Events
+      env:
+        DOCKER_CLI_EXPERIMENTAL: "enabled"
+      run: docker push ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events:${{ matrix.arch }}
+  build-manifest:
+    needs: [build-events]
+    steps:
+    - uses: actions/checkout@v1
+    - name: Create Manifest
+      env:
+        DOCKER_CLI_EXPERIMENTAL: "enabled"
+      run: docker manifest create --amend ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events:amd64 ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events:arm64 ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events:arm
+  upload-manifest:
+    needs: [build-manifest]
+    steps:
+    - uses: actions/checkout@v1
+    - name: Push Manifest
+      env:
+        DOCKER_CLI_EXPERIMENTAL: "enabled"
+      run: docker manifest push charlesdburton/grillbernetes-events
+      

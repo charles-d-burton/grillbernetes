@@ -25,6 +25,7 @@ jobs:
       run: docker push ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events:${{ matrix.arch }}
   build-manifest:
     needs: [build-events]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
     - name: Create Manifest
@@ -33,6 +34,7 @@ jobs:
       run: docker manifest create --amend ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events:amd64 ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events:arm64 ${{ secrets.DOCKER_USERNAME }}/grillbernetes-events:arm
   upload-manifest:
     needs: [build-manifest]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
     - name: Push Manifest

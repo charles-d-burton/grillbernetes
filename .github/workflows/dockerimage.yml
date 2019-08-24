@@ -12,26 +12,18 @@ jobs:
         arch: ["arm64", "arm", "amd64"]
     runs-on: ubuntu-latest 
     steps:
-    - uses: actions/checkout@v1
-    - name: Docker Login
-      run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
-    - name: Build Events
-      env:
-        DOCKER_CLI_EXPERIMENTAL: "enabled"
-      run: cd events && docker build . --file Dockerfile --build-arg GOARCH=${{ matrix.arch }} -t charlesdburton/grillbernetes-events:${{ matrix.arch }}
-    - name: Push Docker Images
-      env:
-        DOCKER_CLI_EXPERIMENTAL: "enabled"
-      run: docker push charlesdburton/grillbernetes-events:${{ matrix.arch }}
-    - name: Build Manifest
-      env:
-        DOCKER_CLI_EXPERIMENTAL: "enabled"
-      run: docker manifest create --amend "charlesdburton/grillbernetes-events:latest" charlesdburton/grillbernetes-events:${{ matrix.arch }}
-    - name: Annotate Manifest
-      env:
-        DOCKER_CLI_EXPERIMENTAL: "enabled"
-      run: docker manifest annotate --arch ${{ matrix.arch }} "charlesdburton/grillbernetes-events" charlesdburton/grillbernetes-events:${{ matrix.arch }} 
-    - name: Push Manifest
-      env:
-        DOCKER_CLI_EXPERIMENTAL: "enabled"
-      run: docker manifest push charlesdburton/grillbernetes-events
+      - uses: actions/checkout@v1
+      - name: Docker Login
+        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
+      - name: Build Events
+        env:
+          DOCKER_CLI_EXPERIMENTAL: "enabled"
+        run: cd events && docker build . --file Dockerfile --build-arg GOARCH=${{ matrix.arch }} -t charlesdburton/grillbernetes-events:${{ matrix.arch }}
+      - name: Push Docker Images
+        env:
+          DOCKER_CLI_EXPERIMENTAL: "enabled"
+      - run: docker push charlesdburton/grillbernetes-events:${{ matrix.arch }}
+      - run: docker manifest create --amend "charlesdburton/grillbernetes-events:latest" charlesdburton/grillbernetes-events:${{ matrix.arch }}
+      - run: docker manifest annotate --arch ${{ matrix.arch }} "charlesdburton/grillbernetes-events" charlesdburton/grillbernetes-events:${{ matrix.arch }}
+      - run: docker manifest push charlesdburton/grillbernetes-events
+        

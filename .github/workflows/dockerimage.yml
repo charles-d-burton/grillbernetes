@@ -26,7 +26,7 @@ jobs:
     - name: Build Manifest
       env:
         DOCKER_CLI_EXPERIMENTAL: "enabled"
-      run: docker manifest create --amend "charlesdburton/grillbernetes-events:latest" charlesdburton/grillbernetes-events:${{ matrix.arch }}
+      run: docker manifest create --amend "charlesdburton/grillbernetes-events:${{ matrix.arch }}" charlesdburton/grillbernetes-events:${{ matrix.arch }}
     - name: Annotate Manifest
       env:
         DOCKER_CLI_EXPERIMENTAL: "enabled"

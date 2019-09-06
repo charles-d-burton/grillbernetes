@@ -2,12 +2,12 @@
 #Login to Docker and push the images
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
-
+apt update && apt install -y parallel
 builds=("events" "control-hub")
 arches=("amd64" "arm" "arm64")
 echo "Building ${builds[@]}"
-for dir in "${builds[@]}"
-do
+
+function builds() {
   echo "Building ${dir} now"
   #Compile every architecture
   cd ${dir}
@@ -39,4 +39,6 @@ do
   echo "Pushing manifest"
   docker manifest push charlesdburton/grillbernetes-${dir}
   cd ..
-done
+}
+
+parallel builds()::${builds[@]}

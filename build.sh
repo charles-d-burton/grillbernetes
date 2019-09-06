@@ -8,6 +8,7 @@ arches=("amd64" "arm" "arm64")
 echo "Building ${builds[@]}"
 
 function builds() {
+  dir=$1
   echo "Building ${dir} now"
   #Compile every architecture
   cd ${dir}
@@ -41,4 +42,4 @@ function builds() {
   cd ..
 }
 
-parallel builds()::${builds[@]}
+parallel builds::${builds[@]}

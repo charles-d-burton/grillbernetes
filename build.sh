@@ -4,10 +4,10 @@
 export DOCKER_CLI_EXPERIMENTAL=enabled
 sudo apt update && sudo apt install -y parallel
 export builds=("events" "control-hub")
-export arches=("amd64" "arm" "arm64")
 echo "Building ${builds[@]}"
 
 function buildServices() {
+  arches=("amd64" "arm" "arm64")
   dir=$1
   echo "Building ${dir} now"
   #Compile every architecture

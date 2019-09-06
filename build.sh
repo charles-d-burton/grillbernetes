@@ -2,7 +2,7 @@
 #Login to Docker and push the images
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
-apt update && apt install -y parallel
+sudo apt update && sudo apt install -y parallel
 builds=("events" "control-hub")
 arches=("amd64" "arm" "arm64")
 echo "Building ${builds[@]}"

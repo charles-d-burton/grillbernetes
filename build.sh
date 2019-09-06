@@ -3,11 +3,11 @@
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
 sudo apt update && sudo apt install -y parallel
-builds=("events" "control-hub")
-arches=("amd64" "arm" "arm64")
+export builds=("events" "control-hub")
+export arches=("amd64" "arm" "arm64")
 echo "Building ${builds[@]}"
 
-function builds() {
+function buildServices() {
   dir=$1
   echo "Building ${dir} now"
   #Compile every architecture
@@ -41,5 +41,5 @@ function builds() {
   docker manifest push charlesdburton/grillbernetes-${dir}
   cd ..
 }
-export -f builds
-parallel builds ::: ${builds[@]}
+export -f buildServices
+parallel buildServices ::: ${builds[@]}

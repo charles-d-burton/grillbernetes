@@ -42,4 +42,4 @@ function builds() {
   cd ..
 }
 
-parallel builds::${builds[@]}
+parallel builds:::${builds[@]}

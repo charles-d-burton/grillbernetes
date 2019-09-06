@@ -41,5 +41,5 @@ function builds() {
   docker manifest push charlesdburton/grillbernetes-${dir}
   cd ..
 }
-
+export -f builds
 parallel builds ::: ${builds[@]}

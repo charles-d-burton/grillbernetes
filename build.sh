@@ -18,7 +18,7 @@ function buildServices() {
     docker push ${repo}:${arch}
   }
   export -f dockerBuild
-  parallel --bar dockerBuild ::: ${arches[@]}
+  parallel dockerBuild ::: ${arches[@]}
   #Compile every architecture
   cd ${dir}
   repos=("charlesdburton/grillbernetes-${dir}")

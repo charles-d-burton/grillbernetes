@@ -15,6 +15,7 @@ var (
 	pubs        = make(chan *Message, 100)
 	isConnected = false
 	log         = logrus.New()
+	sc          stan.Conn //Will be used in migration go K8S only
 )
 
 //Message data to publish to server

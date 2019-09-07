@@ -17,10 +17,11 @@ function buildServices() {
     docker build -f Dockerfile --build-arg GOARCH=$arch -t ${repo}:${arch} .
     docker push ${repo}:${arch}
   }
+  cd ${dir}
   export -f dockerBuild
   parallel dockerBuild ::: ${arches[@]}
   #Compile every architecture
-  cd ${dir}
+  
   repos=("charlesdburton/grillbernetes-${dir}")
   for arch in "${arches[@]}"
   do

@@ -9,22 +9,30 @@ echo "Building ${builds[@]}"
 function buildServices() {
   arches=("amd64" "arm" "arm64")
   dir=$1
+  export repo="charlesdburton/grillbernetes-${dir}"
   echo "Building ${dir} now"
+
+  function dockerBuild() {
+    arch=$1
+    docker build -f Dockerfile --build-arg GOARCH=$arch -t ${repo}:${arch} .
+    docker push ${repo}:${arch}
+  }
+  export -f dockerBuild
+  parallel --bar dockerBuild ::: ${arches[@]}
   #Compile every architecture
   cd ${dir}
   repos=("charlesdburton/grillbernetes-${dir}")
   for arch in "${arches[@]}"
   do
-    docker build -f Dockerfile --build-arg GOARCH=$arch -t ${repos[0]}:${arch} .
     repos+=("${repos[0]}:${arch}")
   done
 
   
-  for image in "${repos[@]:1}"
-  do
-    echo "pushing: $image"
-    docker push $image
-  done
+  #for image in "${repos[@]:1}"
+  #do
+  #  echo "pushing: $image"
+  #  docker push $image
+  #done
 
   #Create the docker manifest for all of the images
   echo "Creating manifest for ${repos[@]}"

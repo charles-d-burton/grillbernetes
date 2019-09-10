@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -67,18 +66,4 @@ func main() {
 		}
 	})
 	router.Run(":7777")
-}
-
-func handleSend(rw http.ResponseWriter, req *http.Request) {
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println(body)
-	var msg messagebus.Message
-	err = json.Unmarshal(body, &msg)
-	if err != nil {
-		log.Error(err)
-	}
-	messagebus.Publish(&msg)
 }

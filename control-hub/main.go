@@ -6,10 +6,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/charles-d-burton/grillbernetes/control-hub/messagebus"
 	"github.com/gin-gonic/gin"
-	"github.com/nats-io/go-nats"
-	stan "github.com/nats-io/go-nats-streaming"
+	nats "github.com/nats-io/nats.go"
+	stan "github.com/nats-io/stan.go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -54,7 +53,7 @@ func usage() {
 func main() {
 	router := gin.Default()
 	router.POST("/", func(c *gin.Context) {
-		var msg messagebus.Message
+		var msg Message
 		if err := c.ShouldBindJSON(&msg); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return

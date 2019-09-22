@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	nats "github.com/nats-io/nats.go"
@@ -36,13 +35,11 @@ func init() {
 	flag.Parse()
 	nc, err := nats.Connect(natsHost)
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	sc, err = stan.Connect("nats-streaming", "smoker-client", stan.NatsConn(nc),
 		stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
-			log.Info(reason)
-			os.Exit(1)
+			log.Fatal(reason)
 		}))
 }
 

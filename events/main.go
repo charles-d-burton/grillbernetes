@@ -94,7 +94,6 @@ func main() {
 		router.GET("/stream/:device/:channel", env.SubscribeRaw)
 		router.Run(":7777")
 	}
-
 }
 
 //Subscribe gin context to subscribe to an event stream returning json

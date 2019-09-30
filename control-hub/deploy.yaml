@@ -19,7 +19,7 @@ spec:
   selector:
     matchLabels:
       app: control-hub
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       labels:
@@ -42,7 +42,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: Host(`control-hub.home.rsmachiner.com`)
+    - match: Host(`controlhub.home.rsmachiner.com`)
       kind: Rule
       services:
         - name: control-hub
@@ -58,11 +58,10 @@ spec:
   entryPoints:
     - websecure
   routes:
-  - match: Host(`control-hub.home.rsmachiner.com`)
+  - match: Host(`controlhub.home.rsmachiner.com`)
     kind: Rule
     services:
     - name: control-hub
       port: 80
   tls:
     certResolver: default
-

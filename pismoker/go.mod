@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/felixge/pidctrl v0.0.0-20160307080219-7b13bcae7243
+	github.com/go-redis/redis v6.15.5+incompatible // indirect
 	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/jeffchao/backoff v0.0.0-20140404060208-9d7fd7aa17f2

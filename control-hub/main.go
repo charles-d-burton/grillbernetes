@@ -6,8 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	nats "github.com/nats-io/nats.go"
-	stan "github.com/nats-io/stan.go"
+	"github.com/go-redis/redis"
 	"github.com/sirupsen/logrus"
 )
 
@@ -18,7 +17,7 @@ Options:
 	-nh, --nats-host       <NATSHost>     Start the controller connecting to the defined NATS Streaming server
 `
 	log = logrus.New()
-	sc  stan.Conn
+	rc  *redis.Client
 )
 
 //Message data to publish to server
@@ -29,18 +28,17 @@ type Message struct {
 
 func init() {
 	log.SetFormatter(&logrus.JSONFormatter{})
-	var natsHost string
-	flag.StringVar(&natsHost, "nh", "", "Start the controller connecting to the defined NATS Streaming server")
-	flag.StringVar(&natsHost, "nats-host", "", "Start the controller connecting to the defined NATS Streaming server")
+	var redisHost string
+	flag.StringVar(&redisHost, "rd", "", "Start the controller connecting to the defined NATS Streaming server")
+	flag.StringVar(&redisHost, "redis-host", "", "Start the controller connecting to the defined NATS Streaming server")
 	flag.Parse()
-	nc, err := nats.Connect(natsHost)
-	if err != nil {
-		log.Fatal(err)
-	}
-	sc, err = stan.Connect("nats-streaming", "smoker-client", stan.NatsConn(nc),
-		stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
-			log.Fatal(reason)
-		}))
+	rc = redis.NewClient(&redis.Options{
+		Addr:         redisHost,
+		Password:     "",
+		DB:           0,
+		MinIdleConns: 1,
+		MaxRetries:   5,
+	})
 }
 
 func usage() {
@@ -56,9 +54,10 @@ func main() {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "accepted"})
-		err := sc.Publish(msg.Topic, msg.Data)
+		err := rc.Set(msg.Topic, msg.Data, 0)
 		if err != nil {
 			log.Println(err)
+			c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Err()})
 		}
 	})
 	router.Run(":7777")

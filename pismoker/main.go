@@ -107,6 +107,20 @@ func main() {
 			}
 		}
 	}()
+	wg.Add(1)
+	stoppers = append(stoppers, Fanout(wg)) //Start the Fanout
+	wg.Add(1)
+	stoppers = append(stoppers, PollRunState(wg)) //Start watching for runstate updates
+	wg.Add(1)
+	er, es := PublishEvents(wg)
+	listeners = append(listeners, er)
+	stoppers = append(stoppers, es)
+	wg.Add(1)
+	rp, sp := PidLoop(wg)
+	listeners = append(listeners, rp)
+	stoppers = append(stoppers, sp)
+	wg.Add(1)
+	ReadLoop(wg)
 	wg.Wait()
 }
 
@@ -199,50 +213,6 @@ func PublishEvents(wg *sync.WaitGroup) (chan Reading, chan bool) {
 	return readings, stopper
 }
 
-//ReadLoop Read the sensor data in a loop, pass the data to the channel for fanout
-func ReadLoop(wg *sync.WaitGroup) {
-	defer wg.Done()
-	go func() error {
-		f := backoff.Fibonacci()
-		f.Interval = 10 * time.Millisecond
-		f.MaxRetries = 10
-		connect := func() error { //Closure to support backoff/retry
-			log.Println("Initializing sensors")
-			sensors, err := ds18b20.Sensors()
-			if err != nil {
-				log.Fatal(err)
-			}
-			ticker := time.NewTicker(1 * time.Second)
-			for {
-				select {
-				case <-ticker.C:
-					//log.Println("Scanning sensors")
-					for _, sensor := range sensors {
-						t, err := ds18b20.Temperature(sensor)
-						if err != nil {
-							return err
-						}
-						var reading Reading
-						reading.ID = sensor
-						reading.C = t
-						reading.F = CtoF(t)
-						readings <- reading
-					}
-				}
-			}
-		}
-
-		err := f.Retry(connect)
-		//Completely failed, send the term signal to program
-		if err != nil {
-			log.Println(err)
-			signalChan <- syscall.SIGTERM
-			return err
-		}
-		return nil
-	}()
-}
-
 //PidLoop Watch for changes to run state and execute the PID algorithm to control the software run state
 func PidLoop(wg *sync.WaitGroup) (chan Reading, chan bool) {
 	readings := make(chan Reading, 100)
@@ -301,6 +271,50 @@ func PidLoop(wg *sync.WaitGroup) (chan Reading, chan bool) {
 		}
 	}()
 	return readings, stop
+}
+
+//ReadLoop Read the sensor data in a loop, pass the data to the channel for fanout
+func ReadLoop(wg *sync.WaitGroup) {
+	defer wg.Done()
+	go func() error {
+		f := backoff.Fibonacci()
+		f.Interval = 10 * time.Millisecond
+		f.MaxRetries = 10
+		connect := func() error { //Closure to support backoff/retry
+			log.Println("Initializing sensors")
+			sensors, err := ds18b20.Sensors()
+			if err != nil {
+				log.Fatal(err)
+			}
+			ticker := time.NewTicker(1 * time.Second)
+			for {
+				select {
+				case <-ticker.C:
+					//log.Println("Scanning sensors")
+					for _, sensor := range sensors {
+						t, err := ds18b20.Temperature(sensor)
+						if err != nil {
+							return err
+						}
+						var reading Reading
+						reading.ID = sensor
+						reading.C = t
+						reading.F = CtoF(t)
+						readings <- reading
+					}
+				}
+			}
+		}
+
+		err := f.Retry(connect)
+		//Completely failed, send the term signal to program
+		if err != nil {
+			log.Println(err)
+			signalChan <- syscall.SIGTERM
+			return err
+		}
+		return nil
+	}()
 }
 
 /********************************

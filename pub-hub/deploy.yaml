@@ -47,21 +47,21 @@ spec:
       services:
         - name: pub-hub
           port: 80
-      #middlewares:
-      #  - name: redirect
+      middlewares:
+        - name: redirect
 ---
-#apiVersion: traefik.containo.us/v1alpha1
-#kind: IngressRoute
-#metadata:
-#  name: ingressroutetls-pub-hub
-#spec:
-#  entryPoints:
-#    - websecure
-#  routes:
-#  - match: Host(`pub-hub.home.rsmachiner.com`)
-#    kind: Rule
-#    services:
-#    - name: pub-hub
-#      port: 80
-#  tls:
-#    certResolver: default
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ingressroutetls-pub-hub
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`pub-hub.home.rsmachiner.com`)
+    kind: Rule
+    services:
+    - name: pub-hub
+      port: 80
+  tls:
+    certResolver: default

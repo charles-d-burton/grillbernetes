@@ -47,21 +47,21 @@ spec:
       services:
         - name: control-hub
           port: 80
-      #middlewares:
-      #  - name: redirect
+      middlewares:
+        - name: redirect
 ---
-#apiVersion: traefik.containo.us/v1alpha1
-#kind: IngressRoute
-#metadata:
-#  name: ingressroutetls-control-hub
-#spec:
-#  entryPoints:
-#    - websecure
-#  routes:
-#  - match: Host(`control-hub.home.rsmachiner.com`)
-#    kind: Rule
-#    services:
-#    - name: control-hub
-#      port: 80
-#  tls:
-#    certResolver: default
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ingressroutetls-control-hub
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`control-hub.home.rsmachiner.com`)
+    kind: Rule
+    services:
+    - name: control-hub
+      port: 80
+  tls:
+    certResolver: default

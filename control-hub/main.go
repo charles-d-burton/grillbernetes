@@ -14,7 +14,7 @@ var (
 	usageStr = `
 Usage: pismoker [options]
 Options:
-	-nh, --nats-host       <NATSHost>     Start the controller connecting to the defined NATS Streaming server
+	-rh, --redis-host       <NATSHost>     Start the controller connecting to the defined NATS Streaming server
 `
 	log = logrus.New()
 	rc  *redis.Client
@@ -22,8 +22,7 @@ Options:
 
 //Message data to publish to server
 type Message struct {
-	Topic string          `json:"topic"`
-	Data  json.RawMessage `json:"data"`
+	Data json.RawMessage `json:"config"`
 }
 
 func init() {
@@ -47,18 +46,34 @@ func usage() {
 
 func main() {
 	router := gin.Default()
-	router.POST("/", func(c *gin.Context) {
-		var msg Message
-		if err := c.ShouldBindJSON(&msg); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"status": "accepted"})
-		err := rc.Set(msg.Topic, msg.Data, 0)
-		if err != nil {
-			log.Println(err)
-			c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Err()})
-		}
-	})
+	router.GET("/:device/:config", GetConfig)
+	router.POST("/:device/:config", SetConfig)
 	router.Run(":7777")
+}
+
+//GetConfig retrieve a config from Redis
+func GetConfig(c *gin.Context) {
+	val, err := rc.Get(c.Param("device") + "/" + c.Param("config")).Result()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.Fatal(err)
+		return
+	}
+	c.Data(http.StatusOK, "application/json", []byte(val))
+}
+
+//SetConfig sets the config for a given device
+func SetConfig(c *gin.Context) {
+	var msg Message
+	if err := c.ShouldBindJSON(&msg); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	err := rc.Set(c.Param("device")+"/"+c.Param("config"), msg.Data, 0)
+	if err != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Err()})
+		log.Fatal(err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "accepted"})
 }

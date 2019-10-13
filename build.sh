@@ -3,7 +3,7 @@
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
 sudo apt update && sudo apt install -y parallel
-export builds=("events" "control-hub", "pub-hub")
+export builds=("events" "control-hub" "pub-hub")
 echo "Building ${builds[@]}"
 
 function buildServices() {
@@ -13,6 +13,7 @@ function buildServices() {
   echo "Building ${dir} now"
 
   function dockerBuild() {
+    echo "Building Docker For: ${repo}:${arch}"
     arch=$1
     docker build -f Dockerfile --build-arg GOARCH=$arch -t ${repo}:${arch} .
     docker push ${repo}:${arch}

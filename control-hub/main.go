@@ -28,8 +28,8 @@ type Message struct {
 func init() {
 	log.SetFormatter(&logrus.JSONFormatter{})
 	var redisHost string
-	flag.StringVar(&redisHost, "rd", "", "Start the controller connecting to the defined NATS Streaming server")
-	flag.StringVar(&redisHost, "redis-host", "", "Start the controller connecting to the defined NATS Streaming server")
+	flag.StringVar(&redisHost, "rd", "", "Start the controller connecting to the redis cluster")
+	flag.StringVar(&redisHost, "redis-host", "", "Start the controller connecting to the redis cluster")
 	flag.Parse()
 	rc = redis.NewClient(&redis.Options{
 		Addr:         redisHost,

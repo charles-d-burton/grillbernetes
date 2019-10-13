@@ -77,3 +77,8 @@ func SetConfig(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "accepted"})
 }
+
+//Register Device
+func RegisterDevice(device string) {
+
+}

@@ -108,19 +108,19 @@ func main() {
 		}
 	}()
 	wg.Add(1)
-	stoppers = append(stoppers, Fanout(wg)) //Start the Fanout
+	stoppers = append(stoppers, Fanout(&wg)) //Start the Fanout
 	wg.Add(1)
-	stoppers = append(stoppers, PollRunState(wg)) //Start watching for runstate updates
+	stoppers = append(stoppers, PollRunState(&wg)) //Start watching for runstate updates
 	wg.Add(1)
-	er, es := PublishEvents(wg)
+	er, es := PublishEvents(&wg)
 	listeners = append(listeners, er)
 	stoppers = append(stoppers, es)
 	wg.Add(1)
-	rp, sp := PidLoop(wg)
+	rp, sp := PidLoop(&wg)
 	listeners = append(listeners, rp)
 	stoppers = append(stoppers, sp)
 	wg.Add(1)
-	ReadLoop(wg)
+	ReadLoop(&wg)
 	wg.Wait()
 }
 

@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: events
+  annotations:
+    maesh.containo.us/traffic-type: http
 spec:
   ports:
   - port: 80
@@ -17,7 +19,7 @@ spec:
   selector:
     matchLabels:
       app: events
-  replicas: 1
+  replicas: 3
   template:
     metadata:
       labels:
@@ -25,7 +27,7 @@ spec:
     spec:
       containers:
       - name: events
-        image: "charlesdburton/grillbernetes-events:arm64"
+        image: "charlesdburton/grillbernetes-events:latest"
         args:
         - "-nh=nats://nats-cluster:4222"
         ports:
@@ -45,21 +47,21 @@ spec:
       services:
         - name: events
           port: 80
-      middlewares:
-        - name: redirect
+      #middlewares:
+      #  - name: redirect
 ---
-apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
-metadata:
-  name: ingressroutetls-events
-spec:
-  entryPoints:
-    - websecure
-  routes:
-  - match: Host(`events.home.rsmachiner.com`)
-    kind: Rule
-    services:
-    - name: events
-      port: 80
-  tls:
-    certResolver: default
+#apiVersion: traefik.containo.us/v1alpha1
+#kind: IngressRoute
+#metadata:
+#  name: ingressroutetls-events
+#spec:
+#  entryPoints:
+#    - websecure
+#  routes:
+#  - match: Host(`events.home.rsmachiner.com`)
+#    kind: Rule
+#    services:
+#    - name: events
+#      port: 80
+#  tls:
+#    certResolver: default

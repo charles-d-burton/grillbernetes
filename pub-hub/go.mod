@@ -1,4 +1,4 @@
-module github.com/charles-d-burton/grillbernetes/control-hub
+module github.com/charles-d-burton/grillbernetes/pub-hub
 
 go 1.13
 

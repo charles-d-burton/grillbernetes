@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -65,10 +64,9 @@ func GetConfig(c *gin.Context) {
 
 //SetConfig sets the config for a given device
 func SetConfig(c *gin.Context) {
-	body, _ := ioutil.ReadAll(c.Request.Body)
-	log.Info(string(body))
 	var msg Message
 	if err := c.ShouldBindJSON(&msg); err != nil {
+		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

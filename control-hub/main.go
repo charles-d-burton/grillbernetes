@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -28,8 +29,8 @@ type Message struct {
 func init() {
 	log.SetFormatter(&logrus.JSONFormatter{})
 	var redisHost string
-	flag.StringVar(&redisHost, "rd", "", "Start the controller connecting to the defined NATS Streaming server")
-	flag.StringVar(&redisHost, "redis-host", "", "Start the controller connecting to the defined NATS Streaming server")
+	flag.StringVar(&redisHost, "rd", "", "Start the controller connecting to the redis cluster")
+	flag.StringVar(&redisHost, "redis-host", "", "Start the controller connecting to the redis cluster")
 	flag.Parse()
 	rc = redis.NewClient(&redis.Options{
 		Addr:         redisHost,
@@ -64,11 +65,14 @@ func GetConfig(c *gin.Context) {
 
 //SetConfig sets the config for a given device
 func SetConfig(c *gin.Context) {
+	body, _ := ioutil.ReadAll(c.Request.Body)
+	log.Info(string(body))
 	var msg Message
 	if err := c.ShouldBindJSON(&msg); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	log.Info("Message parsed, sending to Redis")
 	err := rc.Set(c.Param("device")+"/"+c.Param("config"), msg.Data, 0)
 	if err != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Err()})

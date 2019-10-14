@@ -52,4 +52,4 @@ function buildServices() {
   cd ..
 }
 export -f buildServices
-parallel --halt now,fail=1 buildServices ::: ${builds[@]}
+parallel --halt now,fail=1 --progress buildServices ::: ${builds[@]}

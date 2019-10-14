@@ -73,7 +73,7 @@ func SetConfig(c *gin.Context) {
 	log.Info("Message parsed, sending to Redis")
 	err := rc.Set(c.Param("device")+"/"+c.Param("config"), []byte(msg.Data), 0).Err()
 	if err != nil {
-		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Err()})
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
 		log.Fatal(err)
 		return
 	}

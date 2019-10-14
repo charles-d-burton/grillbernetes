@@ -54,7 +54,9 @@ func main() {
 //GetConfig retrieve a config from Redis
 func GetConfig(c *gin.Context) {
 	val, err := rc.Get(c.Param("device") + "/" + c.Param("config")).Result()
-	if err != nil {
+	if err == redis.Nil {
+		log.Info("No data for key: ", c.Param("device")+"/"+c.Param("config"))
+	} else if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		log.Fatal(err)
 		return

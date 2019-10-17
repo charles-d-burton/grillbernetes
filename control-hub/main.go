@@ -38,6 +38,7 @@ func init() {
 		MinIdleConns: 1,
 		MaxRetries:   5,
 	})
+	rc.Ping()
 }
 
 func usage() {
@@ -47,6 +48,7 @@ func usage() {
 func main() {
 	router := gin.Default()
 	router.GET("/:device/:config", GetConfig)
+	router.GET("/:device/members", GetDevices)
 	router.POST("/:device/:config", SetConfig)
 	router.Run(":7777")
 }
@@ -79,10 +81,42 @@ func SetConfig(c *gin.Context) {
 		log.Fatal(err)
 		return
 	}
+	err = RegisterDevice(c.Param("device"))
+	if err != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
+		log.Fatal(err)
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"status": "accepted"})
 }
 
-//Register Device
-func RegisterDevice(device string) {
+//GetDevices
+func GetDevices(c *gin.Context) {
+	devices, err := rc.SMembers(c.Param("device")).Result()
+	if err != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
+		log.Fatal(err)
+		return
+	}
+	if len(devices) == 0 {
+		c.JSON(http.StatusOK, devices)
+		return
+	}
+	data, err := json.Marshal(devices)
+	if err != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
+		log.Fatal(err)
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
 
+//RegisterDevice addes a device to the set for connected device tracking
+func RegisterDevice(device string) error {
+	err := rc.SAdd("home", device).Err()
+	if err != nil {
+		return err
+	}
+	log.Println("Successfully added device: ", device)
+	return nil
 }

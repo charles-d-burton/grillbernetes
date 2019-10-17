@@ -47,8 +47,8 @@ func usage() {
 
 func main() {
 	router := gin.Default()
-	router.GET("/:device/:config", GetConfig)
-	router.POST("/:device/:config", SetConfig)
+	router.GET("/config/:device/:config", GetConfig)
+	router.POST("/config/:device/:config", SetConfig)
 	router.GET("/members/:group", GetDevices)
 	router.Run(":7777")
 }

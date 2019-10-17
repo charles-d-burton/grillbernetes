@@ -52,5 +52,5 @@ function buildServices() {
   cd ..
 }
 export -f buildServices
-printf "%s\n" "${builds[@]}" | xargs -P 3 -n buildServices -
+printf "%s\n" "${builds[@]}" | xargs -P ${#builds[@]} -n 1 buildServices
 #parallel --halt now,fail=1 --progress buildServices ::: ${builds[@]}

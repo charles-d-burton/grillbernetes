@@ -48,7 +48,7 @@ func usage() {
 func main() {
 	router := gin.Default()
 	router.GET("/:device/:config", GetConfig)
-	router.GET("/:device/members", GetDevices)
+	router.GET("/:group/members", GetDevices)
 	router.POST("/:device/:config", SetConfig)
 	router.Run(":7777")
 }
@@ -81,7 +81,7 @@ func SetConfig(c *gin.Context) {
 		log.Fatal(err)
 		return
 	}
-	err = RegisterDevice(c.Param("device"))
+	err = RegisterDevice("home", c.Param("device"))
 	if err != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
 		log.Fatal(err)
@@ -92,7 +92,7 @@ func SetConfig(c *gin.Context) {
 
 //GetDevices
 func GetDevices(c *gin.Context) {
-	devices, err := rc.SMembers(c.Param("device")).Result()
+	devices, err := rc.SMembers(c.Param("group")).Result()
 	if err != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
 		log.Fatal(err)
@@ -112,8 +112,8 @@ func GetDevices(c *gin.Context) {
 }
 
 //RegisterDevice addes a device to the set for connected device tracking
-func RegisterDevice(device string) error {
-	err := rc.SAdd("home", device).Err()
+func RegisterDevice(group, device string) error {
+	err := rc.SAdd(group, device).Err()
 	if err != nil {
 		return err
 	}

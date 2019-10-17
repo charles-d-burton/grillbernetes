@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/gin-gonic/gin v1.4.0
-	github.com/go-redis/redis v6.15.5+incompatible // indirect
+	github.com/go-redis/redis v6.15.5+incompatible
 	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/json-iterator/go v1.1.7 // indirect

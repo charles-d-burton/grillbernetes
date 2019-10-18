@@ -38,8 +38,11 @@ type Device struct {
 func init() {
 	log.SetFormatter(&logrus.JSONFormatter{})
 	var natsHost string
+	var redisHost string
 	flag.StringVar(&natsHost, "nh", "", "Start the controller connecting to the defined NATS Streaming server")
 	flag.StringVar(&natsHost, "nats-host", "", "Start the controller connecting to the defined NATS Streaming server")
+	flag.StringVar(&redisHost, "rd", "", "Start the controller connecting to the redis cluster")
+	flag.StringVar(&redisHost, "redis-host", "", "Start the controller connecting to the redis cluster")
 	flag.Parse()
 	nc, err := nats.Connect(natsHost)
 	if err != nil {
@@ -49,10 +52,6 @@ func init() {
 		stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
 			log.Fatal(reason)
 		}))
-	var redisHost string
-	flag.StringVar(&redisHost, "rd", "", "Start the controller connecting to the redis cluster")
-	flag.StringVar(&redisHost, "redis-host", "", "Start the controller connecting to the redis cluster")
-	flag.Parse()
 	rc = redis.NewClient(&redis.Options{
 		Addr:         redisHost,
 		Password:     "",

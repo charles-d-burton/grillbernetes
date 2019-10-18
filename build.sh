@@ -20,7 +20,7 @@ function buildServices() {
   }
   cd ${dir}
   export -f dockerBuild
-  parallel --halt now,fail=1 --progress dockerBuild ::: ${arches[@]}
+  parallel --halt now,fail=1 dockerBuild ::: ${arches[@]}
   #Compile every architecture
   
   repos=("charlesdburton/grillbernetes-${dir}")

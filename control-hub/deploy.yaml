@@ -29,7 +29,7 @@ spec:
       - name: control-hub
         image: "charlesdburton/grillbernetes-control-hub:latest"
         args:
-        - "-rd=redis-cluster:6379"
+        - "-rd=redis:6379"
         ports:
         - containerPort: 7777
         imagePullPolicy: Always

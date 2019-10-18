@@ -73,7 +73,7 @@ func usage() {
 func main() {
 	Sweep()
 	router := gin.Default()
-	router.POST("/:device/:channel")
+	router.POST("/:group/:device/:channel")
 	router.Run(":7777")
 }
 
@@ -84,13 +84,13 @@ func PostData(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	err := sc.Publish(c.Param("device")+"-"+c.Param("channel"), msg.Data)
+	err := sc.Publish(c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"), msg.Data)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	err = RegisterDevice("home", c.Param("device"))
+	err = RegisterDevice(c.Param("group"), c.Param("device"))
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -121,7 +121,7 @@ func RegisterDevice(group, device string) error {
 func Sweep() {
 	log.Info("Starting ttl cleanup")
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(30 * time.Second)
 		var cursor uint64
 		for {
 			select {

@@ -90,8 +90,8 @@ func main() {
 		}
 		nc.Connect()
 		env := &Env{nc}
-		router.GET("/events/:device/:channel", env.Subscribe)
-		router.GET("/stream/:device/:channel", env.SubscribeRaw)
+		router.GET("/events/:group/:device/:channel", env.Subscribe)
+		router.GET("/stream/:group/:device/:channel", env.SubscribeRaw)
 		router.Run(":7777")
 	}
 }
@@ -100,7 +100,8 @@ func main() {
 func (env *Env) Subscribe(c *gin.Context) {
 	device := c.Param("device")
 	channel := c.Param("channel")
-	topic := device + "-" + channel
+	group := c.Param("group")
+	topic := group + "-" + device + "-" + channel
 	log.Info("Subscribing to topic: ", topic)
 	subscriber, err := env.natsConn.GetSubscriber(topic)
 	if err != nil {
@@ -133,7 +134,8 @@ func (env *Env) Subscribe(c *gin.Context) {
 func (env *Env) SubscribeRaw(c *gin.Context) {
 	device := c.Param("device")
 	channel := c.Param("channel")
-	topic := device + "-" + channel
+	group := c.Param("group")
+	topic := group + "-" + device + "-" + channel
 	log.Info("Subscribing to topic: ", topic)
 	subscriber, err := env.natsConn.GetSubscriber(topic)
 	if err != nil {

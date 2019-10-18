@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"flag"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
 	nats "github.com/nats-io/nats.go"
 	stan "github.com/nats-io/stan.go"
 	"github.com/sirupsen/logrus"
@@ -19,11 +21,18 @@ Options:
 `
 	log = logrus.New()
 	sc  stan.Conn
+	rc  *redis.Client
 )
 
 //Message data to publish to server
 type Message struct {
 	Data json.RawMessage `json:"data"`
+}
+
+//Device represents a device with timestamp for ttl
+type Device struct {
+	ID          string `json:"id"`
+	LastContact int64  `json:"last_contact"`
 }
 
 func init() {
@@ -40,6 +49,22 @@ func init() {
 		stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
 			log.Fatal(reason)
 		}))
+	var redisHost string
+	flag.StringVar(&redisHost, "rd", "", "Start the controller connecting to the redis cluster")
+	flag.StringVar(&redisHost, "redis-host", "", "Start the controller connecting to the redis cluster")
+	flag.Parse()
+	rc = redis.NewClient(&redis.Options{
+		Addr:         redisHost,
+		Password:     "",
+		DB:           0,
+		MinIdleConns: 1,
+		MaxRetries:   5,
+	})
+	res, err := rc.Ping().Result()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Info(res)
 }
 
 func usage() {
@@ -47,6 +72,7 @@ func usage() {
 }
 
 func main() {
+	Sweep()
 	router := gin.Default()
 	router.POST("/:device/:channel")
 	router.Run(":7777")
@@ -65,6 +91,58 @@ func PostData(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	err = RegisterDevice("home", c.Param("device"))
+	if err != nil {
+		log.Error(err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"status": "accepted"})
 
+}
+
+//RegisterDevice addes a device to the set for connected device tracking
+func RegisterDevice(group, device string) error {
+	var dev Device
+	dev.ID = device
+	dev.LastContact = time.Now().Unix()
+	data, err := json.Marshal(&dev)
+	if err != nil {
+		return err
+	}
+	err = rc.SAdd(group+"-"+device, data).Err()
+	if err != nil {
+		return err
+	}
+	log.Println("Successfully added device: ", device)
+	return nil
+}
+
+//Sweep Periodically clean up the set
+func Sweep() {
+	log.Info("Starting ttl cleanup")
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		var cursor uint64
+		for {
+			select {
+			case <-ticker.C:
+				log.Info("Running sweep")
+				for {
+					var keys []string
+					var err error
+					keys, cursor, err = rc.SScan("*", cursor, "*", 10).Result()
+					if err != nil {
+						panic(err)
+					}
+					for _, key := range keys { //TODO: Implement logic to cleanup old set entries
+						log.Info(key)
+					}
+					if cursor == 0 {
+						break
+					}
+				}
+			}
+		}
+	}()
 }

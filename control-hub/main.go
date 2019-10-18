@@ -81,18 +81,12 @@ func SetConfig(c *gin.Context) {
 		log.Fatal(err)
 		return
 	}
-	err = RegisterDevice("home", c.Param("device"))
-	if err != nil {
-		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
-		log.Fatal(err)
-		return
-	}
 	c.JSON(http.StatusOK, gin.H{"status": "accepted"})
 }
 
-//GetDevices
+//GetDevices Get all the devices and return them to the client
 func GetDevices(c *gin.Context) {
-	devices, err := rc.SMembers(c.Param("group")).Result()
+	devices, err := rc.SMembers(c.Param("group") + "-" + c.Param("device")).Result()
 	if err != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
 		log.Fatal(err)
@@ -109,14 +103,4 @@ func GetDevices(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, data)
-}
-
-//RegisterDevice addes a device to the set for connected device tracking
-func RegisterDevice(group, device string) error {
-	err := rc.SAdd(group, device).Err()
-	if err != nil {
-		return err
-	}
-	log.Println("Successfully added device: ", device)
-	return nil
 }

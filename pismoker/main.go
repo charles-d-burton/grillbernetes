@@ -20,6 +20,7 @@ import (
 	"github.com/yryz/ds18b20"
 	"periph.io/x/periph/conn/gpio"
 	"periph.io/x/periph/conn/gpio/gpioreg"
+	"periph.io/x/periph/host"
 )
 
 const (
@@ -39,11 +40,12 @@ Options:
 	dataHost     = ""
 	controlHost  = ""
 	machineName  = ""
+	group        = ""
 	signalChan   = make(chan os.Signal, 1)
 	controlChan  = make(chan *ControlState, 5)
 	readings     = make(chan Reading, 1000)
-	listeners    = make([]chan Reading, 2)
-	stoppers     = make([]chan bool, 1)
+	listeners    []chan Reading
+	stoppers     []chan bool
 	controlState ControlState
 )
 
@@ -58,8 +60,10 @@ func init() {
 	flag.StringVar(&machineName, "name", "", "Name of the machine you're working with, defaults to hostname")
 	flag.StringVar(&controlHost, "ch", "", "Hostname:Port of the config enpoint")
 	flag.StringVar(&controlHost, "control-host", "", "Hostname:Port of the config enpoint")
+	flag.StringVar(&group, "g", "home", "Logical group")
+	flag.StringVar(&group, "group", "home", "Logical group")
 	flag.Parse()
-	if dataHost == "" || controlHost == "" {
+	if dataHost == "" || controlHost == "" || group == "" {
 		usage()
 	}
 	if machineName == "" {
@@ -68,6 +72,10 @@ func init() {
 			log.Fatal(err)
 		}
 		machineName = strings.Replace(name, ".", "-", -1)
+	}
+	log.Println("Starting GPIO initialization")
+	if _, err := host.Init(); err != nil {
+		log.Fatal(err)
 	}
 	signal.Notify(signalChan, syscall.SIGTERM)
 	signal.Notify(signalChan, syscall.SIGINT)
@@ -105,6 +113,8 @@ func main() {
 			for _, stopper := range stoppers {
 				stopper <- true
 			}
+			time.Sleep(2 * time.Second)
+			os.Exit(0)
 		}
 	}()
 	wg.Add(1)
@@ -120,7 +130,8 @@ func main() {
 	listeners = append(listeners, rp)
 	stoppers = append(stoppers, sp)
 	wg.Add(1)
-	ReadLoop(&wg)
+	stoppers = append(stoppers, ReadLoop(&wg))
+	log.Println("Finished initialization")
 	wg.Wait()
 }
 
@@ -128,14 +139,18 @@ func main() {
 func Fanout(wg *sync.WaitGroup) chan bool {
 	stopper := make(chan bool, 1)
 	go func() {
-		select {
-		case reading := <-readings:
-			for _, listener := range listeners {
-				listener <- reading
+		for {
+			select {
+			case reading := <-readings:
+				log.Println("Got reading, fanning out")
+				for _, listener := range listeners {
+					listener <- reading
+				}
+			case <-stopper:
+				log.Println("Fanout received stop signal")
+				wg.Done()
+				break
 			}
-		case <-stopper:
-			wg.Done()
-			break
 		}
 	}()
 	return stopper
@@ -149,12 +164,13 @@ func PollRunState(wg *sync.WaitGroup) chan bool {
 		for {
 			select {
 			case <-stopper:
+				log.Println("Breaking out of run state check")
 				ticker.Stop()
 				wg.Done()
 				break
 			case t := <-ticker.C:
 				log.Println(t)
-				resp, err := http.Get("https://" + controlHost + "/" + machineName + "/configs")
+				resp, err := http.Get(controlHost + "/" + "config" + "/" + group + "/" + machineName + "/configs")
 				if err != nil {
 					log.Println(err)
 					continue
@@ -165,7 +181,7 @@ func PollRunState(wg *sync.WaitGroup) chan bool {
 					log.Println(err)
 					continue
 				}
-				log.Println("Got config: ", body)
+				log.Println("Got config: ", string(body))
 				err = json.Unmarshal(body, &controlState)
 				if err != nil {
 					log.Println(err)
@@ -181,41 +197,48 @@ func PollRunState(wg *sync.WaitGroup) chan bool {
 
 //PublishEvents Push events to the data stream
 func PublishEvents(wg *sync.WaitGroup) (chan Reading, chan bool) {
+	log.Println("Starting Publish event loop")
 	stopper := make(chan bool, 1)
-	readings := make(chan Reading, 1000)
-	eventStream := "https://" + dataHost + "/" + machineName + "/readings"
+	reads := make(chan Reading, 1000)
+	eventStream := dataHost + "/" + group + "/" + machineName + "/readings"
 	go func() {
-		select {
-		case reading := <-readings:
-			data, err := json.Marshal(&reading)
-			if err != nil {
-				log.Println(err)
-			} else {
-				resp, err := http.Post(eventStream, "application/json", bytes.NewBuffer(data))
+		for {
+			select {
+			case reading := <-reads:
+				log.Println("Publish received reading")
+				data, err := json.Marshal(&reading)
 				if err != nil {
 					log.Println(err)
 				} else {
-					body, err := ioutil.ReadAll(resp.Body)
+					resp, err := http.Post(eventStream, "application/json", bytes.NewBuffer(data))
 					if err != nil {
 						log.Println(err)
-					} else if resp.StatusCode != http.StatusOK {
-						log.Println("Response from server not OK: ", resp.Status)
 					} else {
-						log.Println(string(body))
+						body, err := ioutil.ReadAll(resp.Body)
+						if err != nil {
+							log.Println(err)
+						} else if resp.StatusCode != http.StatusOK {
+							log.Println("Response from server not OK: ", resp.Status)
+						} else {
+							log.Println(resp.Status)
+							log.Println(string(body))
+						}
+						resp.Body.Close()
 					}
 				}
+			case <-stopper:
+				wg.Done()
+				break
 			}
-		case <-stopper:
-			wg.Done()
-			break
 		}
 	}()
-	return readings, stopper
+	return reads, stopper
 }
 
 //PidLoop Watch for changes to run state and execute the PID algorithm to control the software run state
 func PidLoop(wg *sync.WaitGroup) (chan Reading, chan bool) {
-	readings := make(chan Reading, 100)
+	log.Println("Starting PID Control loop")
+	reads := make(chan Reading, 100)
 	stop := make(chan bool, 1)
 	go func() {
 		pidState := PIDState{
@@ -236,10 +259,13 @@ func PidLoop(wg *sync.WaitGroup) (chan Reading, chan bool) {
 		for {
 			select {
 			case state := <-controlChan:
+				log.Println("Received control state change")
 				controlState.Pwr = state.Pwr
 				controlState.Temp = state.Temp
-			case reading := <-readings:
+				pid.Set(state.Temp)
+			case reading := <-reads:
 				log.Println("Received temperature update")
+				log.Println("Reading: ", reading.F)
 				update := pid.Update(reading.F)
 				log.Println("PID says: ", update)
 				if controlState.Pwr {
@@ -270,13 +296,14 @@ func PidLoop(wg *sync.WaitGroup) (chan Reading, chan bool) {
 
 		}
 	}()
-	return readings, stop
+	return reads, stop
 }
 
 //ReadLoop Read the sensor data in a loop, pass the data to the channel for fanout
-func ReadLoop(wg *sync.WaitGroup) {
-	defer wg.Done()
-	go func() error {
+func ReadLoop(wg *sync.WaitGroup) chan bool {
+	log.Println("Starting Sensor read loop")
+	stop := make(chan bool, 1)
+	go func() {
 		f := backoff.Fibonacci()
 		f.Interval = 10 * time.Millisecond
 		f.MaxRetries = 10
@@ -285,6 +312,7 @@ func ReadLoop(wg *sync.WaitGroup) {
 			sensors, err := ds18b20.Sensors()
 			if err != nil {
 				log.Fatal(err)
+				return err
 			}
 			ticker := time.NewTicker(1 * time.Second)
 			for {
@@ -301,7 +329,10 @@ func ReadLoop(wg *sync.WaitGroup) {
 						reading.C = t
 						reading.F = CtoF(t)
 						readings <- reading
+						log.Println(reading)
 					}
+				case <-stop:
+					return nil
 				}
 			}
 		}
@@ -311,10 +342,10 @@ func ReadLoop(wg *sync.WaitGroup) {
 		if err != nil {
 			log.Println(err)
 			signalChan <- syscall.SIGTERM
-			return err
+			wg.Done()
 		}
-		return nil
 	}()
+	return stop
 }
 
 /********************************

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
+	"github.com/google/uuid"
 	nats "github.com/nats-io/nats.go"
 	stan "github.com/nats-io/stan.go"
 	"github.com/sirupsen/logrus"
@@ -48,10 +49,18 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	sc, err = stan.Connect("nats-streaming", "smoker-client", stan.NatsConn(nc),
+	guid, err := uuid.NewRandom() //Create a new random unique identifier
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Info("UUID: ", guid.String())
+	sc, err = stan.Connect("nats-streaming", guid.String(), stan.NatsConn(nc),
 		stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
 			log.Fatal(reason)
 		}))
+	if err != nil {
+		log.Fatal(err)
+	}
 	rc = redis.NewClient(&redis.Options{
 		Addr:         redisHost,
 		Password:     "",
@@ -84,6 +93,7 @@ func PostData(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	log.Info("Publishing to: ", c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"))
 	err := sc.Publish(c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"), msg.Data)
 	if err != nil {
 		log.Error(err)

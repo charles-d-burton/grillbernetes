@@ -82,7 +82,7 @@ func usage() {
 func main() {
 	Sweep()
 	router := gin.Default()
-	router.POST("/:group/:device/:channel")
+	router.POST("/:group/:device/:channel", PostData)
 	router.Run(":7777")
 }
 

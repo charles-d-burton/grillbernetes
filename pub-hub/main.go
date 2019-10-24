@@ -107,7 +107,6 @@ func PostData(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "accepted"})
-
 }
 
 //RegisterDevice addes a device to the set for connected device tracking

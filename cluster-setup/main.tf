@@ -4,3 +4,10 @@ module "traefik" {
     kubernetes = "kubernetes"
   }
 }
+
+module "influx" {
+  source = "./influx"
+  providers = {
+    kubernetes = "kubernetes"
+  }
+}

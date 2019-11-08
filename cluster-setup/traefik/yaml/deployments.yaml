@@ -32,6 +32,7 @@ spec:
             - --accesslog
             - --entrypoints.web.Address=:8000
             - --entrypoints.websecure.Address=:4443
+            - --entrypoints.webinternal.Address=:8081
             - --providers.kubernetescrd
             - --certificatesresolvers.default.acme.tlschallenge
             - --certificatesresolvers.default.acme.email=charles.d.burton@gmail.com
@@ -46,6 +47,8 @@ spec:
               containerPort: 4443
             - name: admin
               containerPort: 8080
+            - name: webinternal
+              containerPort: 8081
 ---
 apiVersion: traefik.containo.us/v1alpha1
 kind: Middleware

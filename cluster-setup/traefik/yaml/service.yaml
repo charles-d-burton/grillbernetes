@@ -25,6 +25,10 @@ spec:
     - protocol: TCP
       name: admin
       port: 8080
+    - protocol: TCP
+      name: webinternal
+      port: 80
+      targetPort: 8081
   selector:
     app: traefik
   type: LoadBalancer

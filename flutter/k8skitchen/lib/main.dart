@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 
 final url = 'https://control-hub.home.rsmachiner.com/send';
+final controlURL = 'https://control-hub.home.rsmachiner.com/config/home/smoker-pi/configs';
+final eventURL = 'https://events.home.rsmachiner.com/stream/home/smoker-pi/readings';
 void main() => runApp(MyApp());
 
 

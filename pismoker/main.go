@@ -37,8 +37,9 @@ Options:
 	-ch, --control-host    <ControlHost>  Remote host that maintains control state
 	-dh, --data-host       <DataHost>     Remote host that accepts Readings
 `
-	dataHost     = ""
-	controlHost  = ""
+	dataHost    = ""
+	controlHost = ""
+
 	machineName  = ""
 	group        = ""
 	sampleRate   int

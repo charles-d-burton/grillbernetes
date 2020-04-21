@@ -1,0 +1,78 @@
+<div>
+    <main role="main" class="container text-center">
+    <div class="mt-5">
+        <h1>Data Stream Here</h1>
+        <p vg-if='!c.Stream.Initialized'>Waiting for data...</p>
+        <p vg-if='c.Stream.Initialized' vg-html='c.Stream.Data'></p>
+    </div>
+    <button @click="c.HandleStreamInit(event)">Start Data Stream</button>
+    </main>
+</div>
+
+<script type="application/x-go">
+
+import (
+    //"time"
+    "fmt"
+    "github.com/peterhellberg/sseclient"
+    "github.com/json-iterator/go"
+)
+
+const (
+    events = "https://events.home.rsmachiner.com/stream/home/smoker-pi/readings"
+    controls = "https://control-hub.home.rsmachiner.com/config/home/smoker-pi/configs"
+)
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
+
+type Root struct {
+    Stream stream `vugu:"data"`
+}
+
+type stream struct {
+    Initialized bool
+    Data string
+    Faren float32
+    Cels float32
+}
+
+type Update struct {
+	Data struct {
+		ID string  `json:"id"`
+		F  float32 `json:"f"`
+		C  float32 `json:"c"`
+	} `json:"data"`
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (r *Root) HandleStreamInit(event *vugu.DOMEvent) {
+    r.Stream = stream{}
+    ee := event.EventEnv()
+    //ticker := time.NewTicker(1000 * time.Millisecond)
+    go func() {
+        //var count int
+        eventUpdates, _ := sseclient.OpenURL(events)
+        var update Update
+        for event := range eventUpdates {
+            body, _ := json.Marshal(event.Data)
+            json.Unmarshal(body, &update)
+            ee.Lock()
+            r.Stream.Data = update.Data.ID
+            r.Stream.Faren = update.Data.F
+            r.Stream.Cels = update.Data.C
+            ee.UnlockRender()
+        }
+        /*for {
+            select {
+            case  <-ticker.C:
+
+                r.Stream.Initialized = true
+                ee.Lock()
+                count = count +1
+                r.Stream.Data = strconv.Itoa(count)
+                ee.UnlockRender()
+            }
+        }*/
+    }()
+}
+</script>

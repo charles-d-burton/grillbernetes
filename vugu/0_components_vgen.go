@@ -9,8 +9,6 @@ import "github.com/vugu/vugu"
 import js "github.com/vugu/vugu/js"
 
 import (
-	//"time"
-
 	"github.com/json-iterator/go"
 	"github.com/peterhellberg/sseclient"
 )
@@ -45,31 +43,23 @@ type Update struct {
 func (r *Root) HandleStreamInit(event *vugu.DOMEvent) {
 	r.Stream = stream{}
 	ee := event.EventEnv()
-	//ticker := time.NewTicker(1000 * time.Millisecond)
 	go func() {
-		//var count int
 		eventUpdates, _ := sseclient.OpenURL(events)
 		var update Update
 		for event := range eventUpdates {
-			body, _ := json.Marshal(event.Data)
+			body, err := json.Marshal(event.Data)
+			if err != nil {
+				fmt.Println(err)
+			}
+			r.Stream.Initialized = true
 			json.Unmarshal(body, &update)
+			fmt.Println(update)
 			ee.Lock()
 			r.Stream.Data = update.Data.ID
 			r.Stream.Faren = update.Data.F
 			r.Stream.Cels = update.Data.C
 			ee.UnlockRender()
 		}
-		/*for {
-		    select {
-		    case  <-ticker.C:
-
-		        r.Stream.Initialized = true
-		        ee.Lock()
-		        count = count +1
-		        r.Stream.Data = strconv.Itoa(count)
-		        ee.UnlockRender()
-		    }
-		}*/
 	}()
 }
 func (c *Root) Build(vgin *vugu.BuildIn) (vgout *vugu.BuildOut) {
@@ -126,6 +116,42 @@ func (c *Root) Build(vgin *vugu.BuildIn) (vgout *vugu.BuildOut) {
 					{
 						vghtml := fmt.Sprint(c.Stream.Data)
 						vgn.InnerHTML = &vghtml
+					}
+				}
+				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n        "}
+				vgparent.AppendChild(vgn)
+				if c.Stream.Initialized {
+					vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "span", Attr: []vugu.VGAttribute(nil)}
+					vgparent.AppendChild(vgn)
+					{
+						vgparent := vgn
+						_ = vgparent
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "F:"}
+						vgparent.AppendChild(vgn)
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "p", Attr: []vugu.VGAttribute(nil)}
+						vgparent.AppendChild(vgn)
+						{
+							vghtml := fmt.Sprint(c.Stream.Faren)
+							vgn.InnerHTML = &vghtml
+						}
+					}
+				}
+				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n        "}
+				vgparent.AppendChild(vgn)
+				if c.Stream.Initialized {
+					vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "span", Attr: []vugu.VGAttribute(nil)}
+					vgparent.AppendChild(vgn)
+					{
+						vgparent := vgn
+						_ = vgparent
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "C:"}
+						vgparent.AppendChild(vgn)
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "p", Attr: []vugu.VGAttribute(nil)}
+						vgparent.AppendChild(vgn)
+						{
+							vghtml := fmt.Sprint(c.Stream.Cels)
+							vgn.InnerHTML = &vghtml
+						}
 					}
 				}
 				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    "}

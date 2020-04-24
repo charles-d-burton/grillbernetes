@@ -4,6 +4,8 @@
         <h1>Data Stream Here</h1>
         <p vg-if='!c.Stream.Initialized'>Waiting for data...</p>
         <p vg-if='c.Stream.Initialized' vg-html='c.Stream.Data'></p>
+        <span vg-if='c.Stream.Initialized'>F:<p vg-html='c.Stream.Faren'></p></span>
+        <span vg-if='c.Stream.Initialized'>C:<p vg-html='c.Stream.Cels'></p></span>
     </div>
     <button @click="c.HandleStreamInit(event)">Start Data Stream</button>
     </main>
@@ -12,7 +14,6 @@
 <script type="application/x-go">
 
 import (
-    //"time"
     "fmt"
     "github.com/peterhellberg/sseclient"
     "github.com/json-iterator/go"
@@ -48,31 +49,23 @@ type Update struct {
 func (r *Root) HandleStreamInit(event *vugu.DOMEvent) {
     r.Stream = stream{}
     ee := event.EventEnv()
-    //ticker := time.NewTicker(1000 * time.Millisecond)
     go func() {
-        //var count int
         eventUpdates, _ := sseclient.OpenURL(events)
         var update Update
         for event := range eventUpdates {
-            body, _ := json.Marshal(event.Data)
+            body, err := json.Marshal(event.Data)
+            if err != nil {
+                fmt.Println(err)
+            }
+            r.Stream.Initialized = true
             json.Unmarshal(body, &update)
+            fmt.Println(update)
             ee.Lock()
             r.Stream.Data = update.Data.ID
             r.Stream.Faren = update.Data.F
             r.Stream.Cels = update.Data.C
             ee.UnlockRender()
         }
-        /*for {
-            select {
-            case  <-ticker.C:
-
-                r.Stream.Initialized = true
-                ee.Lock()
-                count = count +1
-                r.Stream.Data = strconv.Itoa(count)
-                ee.UnlockRender()
-            }
-        }*/
     }()
 }
 </script>

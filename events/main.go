@@ -81,6 +81,7 @@ func main() {
 	router := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{"http://localhost"} //Enabled for testing
+	router.Use(cors.New(config))
 	if mockGen {
 		router.GET("/events/:device/:channel", MockGen)
 		router.Run(":7777")

@@ -3,8 +3,9 @@ module github.com/charles-d-burton/grillbernetes/events
 go 1.13
 
 require (
+	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/sse v0.1.0 // indirect
-	github.com/gin-gonic/gin v1.4.0
+	github.com/gin-gonic/gin v1.5.0
 	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/google/uuid v1.1.1
@@ -12,6 +13,8 @@ require (
 	github.com/json-iterator/go v1.1.7 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/mattn/go-isatty v0.0.9 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/nats-io/go-nats v1.7.2
 	github.com/nats-io/go-nats-streaming v0.4.4
 	github.com/nats-io/nats.go v1.8.1
@@ -24,4 +27,5 @@ require (
 	golang.org/x/sys v0.0.0-20190912141932-bc967efca4b8 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/tools v0.0.0-20190719005602-e377ae9d6386 // indirect
+	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
 )

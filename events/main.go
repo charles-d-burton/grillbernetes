@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	uuid "github.com/google/uuid"
 	"github.com/jeffchao/backoff"
@@ -78,6 +79,8 @@ func main() {
 	}
 
 	router := gin.Default()
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string("http://localhost") //Enabled for testing
 	if mockGen {
 		router.GET("/events/:device/:channel", MockGen)
 		router.Run(":7777")

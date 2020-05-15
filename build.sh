@@ -1,52 +1,40 @@
 #!/bin/bash
-
-for i in "$@"
-do
-case $i in
-    -u=*|--username=*)
-    USERNAME="${i#*=}"
-    shift # past argument=value
-    ;;
-esac
-done
-echo "Username: $USERNAME"
-if [[ -z "$USERNAME" ]]
-then
-  echo "No username provided, trying normal login"
-  docker login
-  if [[ ! $? -eq 0 ]]
-  then
-    echo "Docker login failed"
-    exit 1
-  fi
-else
-  docker login -u ${USERNAME}
-fi
 #Login to Docker and push the images
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
-
-builds=("events" "control-hub")
-arches=("amd64" "arm" "arm64")
+sudo apt update && sudo apt install -y parallel
+export builds=("events" "control-hub" "pub-hub")
 echo "Building ${builds[@]}"
-for dir in "${builds[@]}"
-do
+
+function buildServices() {
+  arches=("amd64" "arm" "arm64")
+  dir=$1
+  export repo="charlesdburton/grillbernetes-${dir}"
   echo "Building ${dir} now"
-  #Compile every architecture
+
+  function dockerBuild() {
+    echo "Building Docker For: ${repo}:${arch}"
+    arch=$1
+    docker build -f Dockerfile --build-arg GOARCH=$arch -t ${repo}:${arch} .
+    docker push ${repo}:${arch}
+  }
   cd ${dir}
+  export -f dockerBuild
+  parallel --halt now,fail=1 dockerBuild ::: ${arches[@]}
+  #Compile every architecture
+  
   repos=("charlesdburton/grillbernetes-${dir}")
   for arch in "${arches[@]}"
   do
-    docker build -f Dockerfile --build-arg GOARCH=$arch -t ${repos[0]}:${arch} .
     repos+=("${repos[0]}:${arch}")
   done
 
   
-  for image in "${repos[@]:1}"
-  do
-    echo "pushing: $image"
-    docker push $image
-  done
+  #for image in "${repos[@]:1}"
+  #do
+  #  echo "pushing: $image"
+  #  docker push $image
+  #done
 
   #Create the docker manifest for all of the images
   echo "Creating manifest for ${repos[@]}"
@@ -62,4 +50,6 @@ do
   echo "Pushing manifest"
   docker manifest push charlesdburton/grillbernetes-${dir}
   cd ..
-done
+}
+export -f buildServices
+parallel --halt now,fail=1 buildServices ::: ${builds[@]}

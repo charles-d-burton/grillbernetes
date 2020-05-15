@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: events
+  annotations:
+    maesh.containo.us/traffic-type: http
 spec:
   ports:
   - port: 80
@@ -17,7 +19,7 @@ spec:
   selector:
     matchLabels:
       app: events
-  replicas: 1
+  replicas: 3
   template:
     metadata:
       labels:
@@ -25,46 +27,41 @@ spec:
     spec:
       containers:
       - name: events
-        image: "charlesdburton/grillbernetes-events:arm64"
+        image: "charlesdburton/grillbernetes-events:latest"
         args:
         - "-nh=nats://nats-cluster:4222"
         ports:
         - containerPort: 7777
         imagePullPolicy: Always
-
 ---
-apiVersion: extensions/v1beta1
-kind: Ingress
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
 metadata:
-  name: events-ingress
-  annotations:
-    ingress.kubernetes.io/ssl-redirect: "true"
-    kubernetes.io/ingress.class: nginx
-    certmanager.k8s.io/cluster-issuer: letsencrypt-events
+  name: http-redirect-events
 spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`events.home.rsmachiner.com`)
+      kind: Rule
+      services:
+        - name: events
+          port: 80
+      middlewares:
+        - name: redirect
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ingressroutetls-events
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`events.home.rsmachiner.com`)
+    kind: Rule
+    services:
+    - name: events
+      port: 80
   tls:
-  - hosts:
-    - grillbernetes.home.rsmachiner.com
-    secretName: letsencrypt-events
-  rules:
-  - host: grillbernetes.home.rsmachiner.com
-    http:
-      paths:
-      - path: /
-        backend:
-          serviceName: events
-          servicePort: 80
-
----
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-events
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: "charles.d.burton@gmail.com"
-    privateKeySecretRef:
-      name: letsencrypt-events
-    http01: {}
-
+    certResolver: default

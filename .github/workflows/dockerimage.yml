@@ -1,0 +1,19 @@
+name: GrillbernetesBuild
+
+on:
+  push:
+    branches:
+    - master
+
+jobs:
+  event-build:
+    #strategy:
+      #matrix:
+        #arch: ["arm64", "arm", "amd64"]
+    runs-on: ubuntu-latest 
+    steps:
+    - uses: actions/checkout@v1
+    - name: Docker Login
+      run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
+    - name: Build
+      run: ./build.sh

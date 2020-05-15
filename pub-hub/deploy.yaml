@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pub-hub
+  annotations:
+    maesh.containo.us/traffic-type: http
+spec:
+  ports:
+  - port: 80
+    targetPort: 7777
+  selector:
+    app: pub-hub
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pub-hub
+spec:
+  selector:
+    matchLabels:
+      app: pub-hub
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: pub-hub
+    spec:
+      containers:
+      - name: pub-hub
+        image: "charlesdburton/grillbernetes-pub-hub:latest"
+        args:
+        - "-nh=nats://nats-cluster:4222"
+        - "-rd=redis:6379"
+        ports:
+        - containerPort: 7777
+        imagePullPolicy: Always
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: http-redirect-pub-hub
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`pub-hub.home.rsmachiner.com`)
+      kind: Rule
+      services:
+        - name: pub-hub
+          port: 80
+      middlewares:
+        - name: redirect
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ingressroutetls-pub-hub
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`pub-hub.home.rsmachiner.com`)
+    kind: Rule
+    services:
+    - name: pub-hub
+      port: 80
+  tls:
+    certResolver: default

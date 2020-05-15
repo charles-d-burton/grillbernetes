@@ -10,11 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	uuid "github.com/google/uuid"
 	"github.com/jeffchao/backoff"
-	nats "github.com/nats-io/go-nats"
-	stan "github.com/nats-io/go-nats-streaming"
+	nats "github.com/nats-io/nats.go"
+	stan "github.com/nats-io/stan.go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -78,6 +79,9 @@ func main() {
 	}
 
 	router := gin.Default()
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"http://localhost:8844"} //Enabled for testing
+	router.Use(cors.New(config))
 	if mockGen {
 		router.GET("/events/:device/:channel", MockGen)
 		router.Run(":7777")
@@ -90,17 +94,18 @@ func main() {
 		}
 		nc.Connect()
 		env := &Env{nc}
-		router.GET("/events/:device/:channel", env.Subscribe)
+		router.GET("/events/:group/:device/:channel", env.Subscribe)
+		router.GET("/stream/:group/:device/:channel", env.SubscribeRaw)
 		router.Run(":7777")
 	}
-
 }
 
-//Subscribe gin context to subscribe to an event stream
+//Subscribe gin context to subscribe to an event stream returning json
 func (env *Env) Subscribe(c *gin.Context) {
 	device := c.Param("device")
 	channel := c.Param("channel")
-	topic := device + "-" + channel
+	group := c.Param("group")
+	topic := group + "-" + device + "-" + channel
 	log.Info("Subscribing to topic: ", topic)
 	subscriber, err := env.natsConn.GetSubscriber(topic)
 	if err != nil {
@@ -124,6 +129,39 @@ func (env *Env) Subscribe(c *gin.Context) {
 		case err := <-errs:
 			subscriber.defunctClients <- buffer //Remove our client from the client list
 			c.SSEvent("ERROR:", err.Error())
+			return false
+		}
+	})
+}
+
+//SubscribeRaw to RAW data stream using pure SSE
+func (env *Env) SubscribeRaw(c *gin.Context) {
+	device := c.Param("device")
+	channel := c.Param("channel")
+	group := c.Param("group")
+	topic := group + "-" + device + "-" + channel
+	log.Info("Subscribing to topic: ", topic)
+	subscriber, err := env.natsConn.GetSubscriber(topic)
+	if err != nil {
+		c.AbortWithError(404, err)
+		return
+	}
+	log.Info("Got subscriber from NATS Connection")
+	buffer := make(chan string, 100)
+	errs := make(chan error, 1)
+	subscriber.newClients <- buffer //Add our new client to the recipient list
+	clientGone := c.Writer.CloseNotify()
+	c.Stream(func(w io.Writer) bool {
+		select {
+		case <-clientGone:
+			subscriber.defunctClients <- buffer //Remove our client from the client list
+			return false
+		case message := <-buffer:
+			c.SSEvent("message", json.RawMessage(message))
+			return true
+		case err := <-errs:
+			subscriber.defunctClients <- buffer //Remove our client from the client list
+			c.SSEvent("ERROR", err.Error())
 			return false
 		}
 	})

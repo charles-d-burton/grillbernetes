@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -14,10 +16,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/charles-d-burton/grillbernetes/pismoker/max31850"
+	"github.com/charles-d-burton/grillbernetes/pismoker/max31855"
 	"github.com/felixge/pidctrl"
 	"github.com/jeffchao/backoff"
 	"github.com/tevino/abool"
-	"github.com/yryz/ds18b20"
 	"periph.io/x/periph/conn/gpio"
 	"periph.io/x/periph/conn/gpio/gpioreg"
 	"periph.io/x/periph/host"
@@ -36,20 +39,24 @@ Options:
 	-ct, --control-topic   <Topic>        Topic to listen for control messages
 	-ch, --control-host    <ControlHost>  Remote host that maintains control state
 	-dh, --data-host       <DataHost>     Remote host that accepts Readings
+	-st, --sensor-type     <Sensor Type>  The kind of sensor that's connected
 `
 	dataHost    = ""
 	controlHost = ""
 
-	machineName  = ""
-	group        = ""
-	sampleRate   int
-	signalChan   = make(chan os.Signal, 1)
-	controlChan  = make(chan *ControlState, 5)
-	readings     = make(chan Reading, 1000)
-	listeners    []chan Reading
-	finalizer    = make(chan bool, 1)
-	controlState ControlState
-	powered      = abool.New()
+	machineName      = ""
+	id               = ""
+	group            = ""
+	sensorType       = ""
+	sampleRate       int
+	sensorSampleRate int
+	signalChan       = make(chan os.Signal, 1)
+	controlChan      = make(chan *ControlState, 5)
+	readings         = make(chan Reading, 1000)
+	listeners        []chan Reading
+	finalizer        = make(chan bool, 1)
+	controlState     ControlState
+	powered          = abool.New()
 )
 
 func usage() {
@@ -65,10 +72,14 @@ func init() {
 	flag.StringVar(&controlHost, "control-host", "", "Hostname:Port of the config enpoint")
 	flag.StringVar(&group, "g", "home", "Logical group")
 	flag.StringVar(&group, "group", "home", "Logical group")
-	flag.IntVar(&sampleRate, "sr", 5, "Frequency in seconds to take a data sample")
-	flag.IntVar(&sampleRate, "sample-rate", 5, "Frequency in seconds to take a data sample")
+	flag.IntVar(&sampleRate, "sr", 1, "Frequency in seconds to take a data sample")
+	flag.IntVar(&sampleRate, "sample-rate", 1, "Frequency in seconds to take a data sample")
+	flag.IntVar(&sensorSampleRate, "ssr", 100, "Frequency in ms to poll the sensor for data")
+	flag.IntVar(&sensorSampleRate, "sensor-sample-rate", 100, "Frequence in ms to poll the sensor for data")
+	flag.StringVar(&sensorType, "st", "", "Type of sensor to use")
+	flag.StringVar(&sensorType, "sensor-type", "", "Type of sensor to use.  Must be one of max31855 or max31850")
 	flag.Parse()
-	if dataHost == "" || controlHost == "" || group == "" {
+	if dataHost == "" || controlHost == "" || group == "" || sensorType == "" {
 		usage()
 	}
 	if machineName == "" {
@@ -77,6 +88,9 @@ func init() {
 			log.Fatal(err)
 		}
 		machineName = strings.Replace(name, ".", "-", -1)
+		h := sha1.New()
+		h.Write([]byte(machineName))
+		id = hex.EncodeToString(h.Sum(nil))
 	}
 	log.Println("Starting GPIO initialization")
 	if _, err := host.Init(); err != nil {
@@ -104,8 +118,8 @@ type PIDState struct {
 //Reading data structure to hold sensor data
 type Reading struct {
 	ID string  `json:"id"`
-	F  float64 `json:"f"`
-	C  float64 `json:"c"`
+	F  float32 `json:"f"`
+	C  float32 `json:"c"`
 }
 
 // NOTE: Use tls scheme for TLS, e.g. stan-sub -s tls://demo.nats.io:4443 foo
@@ -253,7 +267,7 @@ func PidLoop() chan Reading {
 				}
 				log.Println("Received temperature update")
 				log.Println("Reading: ", reading.F)
-				update := pid.Update(reading.F)
+				update := pid.Update(float64(reading.F))
 				log.Println("PID says: ", update)
 				if controlState.Pwr {
 					if update == 0 {
@@ -299,26 +313,35 @@ func ReadLoop() {
 		f.MaxRetries = 10
 		connect := func() error { //Closure to support backoff/retry
 			log.Println("Initializing sensors")
-			sensors, err := ds18b20.Sensors()
-			if err != nil {
-				log.Fatal(err)
-				return err
-			}
 			ticker := time.NewTicker(time.Duration(sampleRate) * time.Second)
 			for {
 				select {
 				case <-ticker.C:
-					for _, sensor := range sensors {
-						t, err := ds18b20.Temperature(sensor)
+					var reading Reading
+					switch sensorType {
+					case "max31855":
+						err := max31855.InitMax31855(sensorSampleRate, "")
 						if err != nil {
 							return err
 						}
-						var reading Reading
-						reading.ID = sensor
-						reading.C = t
-						reading.F = CtoF(t)
-						readings <- reading
-						log.Println(reading)
+						reading.ID = id
+						reading.C, err = max31855.GetReadingCelsius()
+						reading.F, err = max31855.GetReadingFarenheit()
+						if err != nil {
+							return err
+						}
+
+					case "max31850":
+						err := max31850.InitMax31850(sensorSampleRate)
+						if err != nil {
+							return err
+						}
+						reading.ID = id
+						reading.C, err = max31850.GetReadingCelsius()
+						reading.F, err = max31850.GetReadingFarenheit()
+						if err != nil {
+							return err
+						}
 					}
 				}
 			}

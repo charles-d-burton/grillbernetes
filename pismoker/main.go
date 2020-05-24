@@ -343,6 +343,7 @@ func ReadLoop() {
 							return err
 						}
 					}
+					readings <- reading
 				}
 			}
 		}

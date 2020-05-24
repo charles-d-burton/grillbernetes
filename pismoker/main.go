@@ -26,10 +26,10 @@ import (
 	"periph.io/x/periph/host"
 )
 
-const (
+/*const (
 	gpioPwr  = "GPIO8"
 	relayPwr = "21"
-)
+)*/
 
 var (
 	usageStr = `
@@ -39,11 +39,12 @@ Options:
 	-ct, --control-topic   <Topic>        Topic to listen for control messages
 	-ch, --control-host    <ControlHost>  Remote host that maintains control state
 	-dh, --data-host       <DataHost>     Remote host that accepts Readings
+	-ssr --sensor-sample-rate <Rate>      Rate to poll sensor for data
 	-st, --sensor-type     <Sensor Type>  The kind of sensor that's connected
 `
-	dataHost    = ""
-	controlHost = ""
-
+	dataHost         = ""
+	controlHost      = ""
+	relayPwr         = ""
 	machineName      = ""
 	id               = ""
 	group            = ""
@@ -78,6 +79,8 @@ func init() {
 	flag.IntVar(&sensorSampleRate, "sensor-sample-rate", 100, "Frequence in ms to poll the sensor for data")
 	flag.StringVar(&sensorType, "st", "", "Type of sensor to use")
 	flag.StringVar(&sensorType, "sensor-type", "", "Type of sensor to use.  Must be one of max31855 or max31850")
+	flag.StringVar(&relayPwr, "rp", "23", "GPIO Pin by Name to drive relay")
+	flag.StringVar(&relayPwr, "relay-pin", "23", "GPIO Pin by Name to drive relay")
 	flag.Parse()
 	if dataHost == "" || controlHost == "" || group == "" || sensorType == "" {
 		usage()

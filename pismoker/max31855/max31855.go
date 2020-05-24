@@ -32,7 +32,6 @@ func InitMax31855(resolution int, port string) error {
 	if err != nil {
 		return err
 	}
-	defer sp.Close()
 
 	// Convert the spi.Port into a spi.Conn so it can be used for communication.
 	c, err := sp.Connect(physic.MegaHertz, spi.Mode3, 8)
@@ -40,6 +39,7 @@ func InitMax31855(resolution int, port string) error {
 		return err
 	}
 	go func() {
+		defer sp.Close()
 		for {
 			var wBuf, rBuf [4]byte
 			if err := c.Tx(wBuf[:], rBuf[:]); err != nil {

@@ -317,28 +317,32 @@ func ReadLoop() {
 		connect := func() error { //Closure to support backoff/retry
 			log.Println("Initializing sensors")
 			ticker := time.NewTicker(time.Duration(sampleRate) * time.Second)
+			switch sensorType {
+			case "max31855":
+				err := max31855.InitMax31855(sensorSampleRate, "")
+				if err != nil {
+					return err
+				}
+			case "max31850":
+				err := max31850.InitMax31850(sensorSampleRate)
+				if err != nil {
+					return err
+				}
+			}
 			for {
 				select {
 				case <-ticker.C:
 					var reading Reading
+					var err error
 					switch sensorType {
 					case "max31855":
-						err := max31855.InitMax31855(sensorSampleRate, "")
-						if err != nil {
-							return err
-						}
 						reading.ID = id
 						reading.C, err = max31855.GetReadingCelsius()
 						reading.F, err = max31855.GetReadingFarenheit()
 						if err != nil {
 							return err
 						}
-
 					case "max31850":
-						err := max31850.InitMax31850(sensorSampleRate)
-						if err != nil {
-							return err
-						}
 						reading.ID = id
 						reading.C, err = max31850.GetReadingCelsius()
 						reading.F, err = max31850.GetReadingFarenheit()

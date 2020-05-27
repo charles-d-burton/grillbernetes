@@ -145,6 +145,8 @@ func (env *Env) Subscribe(c *gin.Context) {
 			subscriber.defunctClients <- queue //Remove our client from the client list
 			c.SSEvent("ERROR:", err.Error())
 			return false
+		case <-subscriber.errors:
+			return false
 		}
 	})
 }

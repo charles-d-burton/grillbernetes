@@ -290,17 +290,6 @@ func (subscriber *Subscriber) Start(conn *NATSConnection) error {
 						}
 						log.Info("Subscriber queue full, dropping message")
 					}
-				} else if len(subscriber.clients) == 0 {
-					log.Info("Received message for defunct subscriber, removing subscriber")
-					if subscriber.sub != nil {
-						err := conn.DeleteSubscriber(subscriber)
-						if err != nil {
-							log.Error(err)
-							subscriber.errors <- err
-						}
-						log.Info("Connection cleaned up, exiting subscriber")
-					}
-					return
 				}
 			case est := <-subscriber.connEstablished:
 				if est {

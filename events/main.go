@@ -282,14 +282,12 @@ func (subscriber *Subscriber) Start(conn *NATSConnection) error {
 					return
 				}
 			case msg := <-subscriber.messages:
-				if len(subscriber.clients) > 0 {
-					for queue := range subscriber.clients {
-						if len(queue) < queuelen { //Skip client if their queue is full
-							queue <- msg
-							continue
-						}
-						log.Info("Subscriber queue full, dropping message")
+				for queue := range subscriber.clients {
+					if len(queue) < queuelen { //Skip client if their queue is full
+						queue <- msg
+						continue
 					}
+					log.Info("Subscriber queue full, dropping message")
 				}
 			case est := <-subscriber.connEstablished:
 				if est {

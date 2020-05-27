@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,13 +20,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	queuelen = 100
+)
+
 var (
 	usageStr = `
 Usage: pismoker [options]
 Options:
 	-nh, --nats-host       <NATSHost>     Start the controller connecting to the defined NATS Streaming server
 	-pt, --publish-topic   <Topic>        Topic to publish messages to in NATS
-	-st, --subscribe-topic   <Topic>        Topic to listen for upate messages
+	-st, --subscribe-topic   <Topic>      Topic to listen for upate messages
+	-d,  --debug             <Nothing>    Debug flag, enables CORS
 `
 	log = logrus.New()
 )
@@ -56,6 +62,7 @@ type Subscriber struct {
 	newClients      chan chan string
 	defunctClients  chan chan string
 	messages        chan string
+	errors          chan error
 }
 
 func main() {
@@ -64,11 +71,14 @@ func main() {
 	var natsHost string
 	var publishTopic string
 	var mockGen = false
+	var debug = false
 	flag.StringVar(&natsHost, "nh", "", "Start the controller connecting to the defined NATS Streaming server")
 	flag.StringVar(&natsHost, "nats-host", "", "Start the controller connecting to the defined NATS Streaming server")
 	flag.StringVar(&publishTopic, "pt", "smoker-controls", "Topic to publish readings to in NATS")
 	flag.StringVar(&publishTopic, "publish-topic", "smoker-controls", "Topic to publish readings to in NATS")
 	flag.BoolVar(&mockGen, "mock", false, "Generate mock data")
+	flag.BoolVar(&debug, "d", false, "Turn on Debugging/Cors")
+	flag.BoolVar(&debug, "debug", false, "Turn on Debugging/Cors")
 
 	flag.Parse()
 	if natsHost == "" {
@@ -79,9 +89,9 @@ func main() {
 	}
 
 	router := gin.Default()
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:8844"} //Enabled for testing
-	router.Use(cors.New(config))
+	if debug {
+		router.Use(cors.Default())
+	}
 	if mockGen {
 		router.GET("/events/:device/:channel", MockGen)
 		router.Run(":7777")
@@ -95,13 +105,14 @@ func main() {
 		nc.Connect()
 		env := &Env{nc}
 		router.GET("/events/:group/:device/:channel", env.Subscribe)
-		router.GET("/stream/:group/:device/:channel", env.SubscribeRaw)
+		router.GET("/stream/:group/:device/:channel", env.Subscribe)
 		router.Run(":7777")
 	}
 }
 
 //Subscribe gin context to subscribe to an event stream returning json
 func (env *Env) Subscribe(c *gin.Context) {
+	realSSE := strings.Contains(c.FullPath(), "stream") //Check if we're looking for true SSE per the spec or streaming JSON
 	device := c.Param("device")
 	channel := c.Param("channel")
 	group := c.Param("group")
@@ -113,55 +124,26 @@ func (env *Env) Subscribe(c *gin.Context) {
 		return
 	}
 	log.Info("Got subscriber from NATS Connection")
-	buffer := make(chan string, 100)
+	queue := make(chan string, queuelen)
 	errs := make(chan error, 1)
-	subscriber.newClients <- buffer //Add our new client to the recipient list
+	subscriber.newClients <- queue //Add our new client to the recipient list
 	clientGone := c.Writer.CloseNotify()
 	c.Stream(func(w io.Writer) bool {
 		select {
 		case <-clientGone:
-			subscriber.defunctClients <- buffer //Remove our client from the client list
+			subscriber.defunctClients <- queue //Remove our client from the client list
 			return false
-		case message := <-buffer:
+		case message := <-queue:
+			if realSSE {
+				c.SSEvent("message", json.RawMessage(message))
+				return true
+			}
 			c.JSON(200, json.RawMessage(message))
 			c.String(200, "\n")
 			return true
 		case err := <-errs:
-			subscriber.defunctClients <- buffer //Remove our client from the client list
+			subscriber.defunctClients <- queue //Remove our client from the client list
 			c.SSEvent("ERROR:", err.Error())
-			return false
-		}
-	})
-}
-
-//SubscribeRaw to RAW data stream using pure SSE
-func (env *Env) SubscribeRaw(c *gin.Context) {
-	device := c.Param("device")
-	channel := c.Param("channel")
-	group := c.Param("group")
-	topic := group + "-" + device + "-" + channel
-	log.Info("Subscribing to topic: ", topic)
-	subscriber, err := env.natsConn.GetSubscriber(topic)
-	if err != nil {
-		c.AbortWithError(404, err)
-		return
-	}
-	log.Info("Got subscriber from NATS Connection")
-	buffer := make(chan string, 100)
-	errs := make(chan error, 1)
-	subscriber.newClients <- buffer //Add our new client to the recipient list
-	clientGone := c.Writer.CloseNotify()
-	c.Stream(func(w io.Writer) bool {
-		select {
-		case <-clientGone:
-			subscriber.defunctClients <- buffer //Remove our client from the client list
-			return false
-		case message := <-buffer:
-			c.SSEvent("message", json.RawMessage(message))
-			return true
-		case err := <-errs:
-			subscriber.defunctClients <- buffer //Remove our client from the client list
-			c.SSEvent("ERROR", err.Error())
 			return false
 		}
 	})
@@ -223,41 +205,60 @@ func (conn *NATSConnection) Connect() {
 //GetSubscriber checks for a subscriber, if none is found it creates a new one
 func (conn *NATSConnection) GetSubscriber(topic string) (*Subscriber, error) {
 	conn.Lock()
-	sub, found := conn.subscribers[topic]
-	conn.Unlock()
-	if found {
+	defer conn.Unlock()
+	subscriber, found := conn.subscribers[topic]
+
+	if found && subscriber.sub.IsValid() {
 		log.Info("Subscriber found for topic: ", topic)
-		return sub, nil
+		return subscriber, nil
+	}
+	if !subscriber.sub.IsValid() {
+		log.Infof("Sub for %v topic is invalid, establishing new sub", topic)
+		delete(conn.subscribers, subscriber.topic)
 	}
 	log.Info("No subscriber found for topic: ", topic)
 	log.Info("Creating new subscriber")
-	sub = &Subscriber{
+	subscriber = &Subscriber{
 		topic:           topic,
-		connEstablished: make(chan bool, 3),
+		connEstablished: make(chan bool, 1),
 		clients:         make(map[chan string]bool, 10),
 		newClients:      make(chan (chan string)),
 		defunctClients:  make(chan (chan string)),
 		messages:        make(chan string, 10),
+		errors:          make(chan error, 1),
 	}
-	err := sub.Start(conn)
+	err := subscriber.Start(conn)
 	if err != nil {
 		return nil, err
 	}
+	conn.subscribers[topic] = subscriber
+	return subscriber, nil
+}
+
+//DeleteSubscriber cleans up subscribers that have been removed
+func (conn *NATSConnection) DeleteSubscriber(subscriber *Subscriber) error {
+	log.Info("Locked connection, deleting subscriber")
 	conn.Lock()
-	conn.subscribers[topic] = sub
-	conn.Unlock()
-	return sub, nil
+	defer conn.Unlock()
+	delete(conn.subscribers, subscriber.topic)
+	err := subscriber.sub.Unsubscribe()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 //Start process messages from the subscription and fan out to listeners, also handles subscription status
 func (subscriber *Subscriber) Start(conn *NATSConnection) error {
+	log.Info("Starting new subscriber for topic: ", subscriber.topic)
+	sub, err := subscriber.Subscribe(conn) //First subscribe to my topic
+	if err != nil {
+		log.Error(err)
+		subscriber.errors <- err
+		return err
+	}
+	subscriber.sub = sub
 	go func() {
-		log.Info("Starting new subscriber for topic: ", subscriber.topic)
-		sub, err := subscriber.Subscribe(conn) //First subscribe to my topic
-		if err != nil {
-			log.Error(err)
-		}
-		subscriber.sub = sub
 		for {
 			select {
 			case s := <-subscriber.newClients:
@@ -269,35 +270,54 @@ func (subscriber *Subscriber) Start(conn *NATSConnection) error {
 				if len(subscriber.clients) == 0 { //No more clients to service, fully cleanup
 					log.Info("No more clients, removing subscriber")
 					if subscriber.sub != nil {
-						conn.Lock() //Prevent race condition where new client can be added while unsubscribing
-						log.Info("Locked connection")
-						err := subscriber.sub.Unsubscribe()
+						err := conn.DeleteSubscriber(subscriber)
 						if err != nil {
 							log.Error(err)
+							subscriber.errors <- err
 						}
-						delete(conn.subscribers, subscriber.topic)
-						conn.Unlock()
-						log.Info("Released lock")
 						log.Info("Connection cleaned up, exiting subscriber")
 					}
 					return
 				}
 			case msg := <-subscriber.messages:
-				if len(subscriber.clients) != 0 {
-					for s := range subscriber.clients {
-						s <- msg
+				if len(subscriber.clients) > 0 {
+					for queue := range subscriber.clients {
+						if len(queue) < queuelen { //Skip client if their queue is full
+							queue <- msg
+							continue
+						}
+						log.Info("Subscriber queue full, dropping message")
 					}
+				} else if len(subscriber.clients) == 0 {
+					log.Info("Received message for defunct subscriber, removing subscriber")
+					if subscriber.sub != nil {
+						err := conn.DeleteSubscriber(subscriber)
+						if err != nil {
+							log.Error(err)
+							subscriber.errors <- err
+						}
+						log.Info("Connection cleaned up, exiting subscriber")
+					}
+					return
 				}
 			case est := <-subscriber.connEstablished:
 				if est {
 					sub, err := subscriber.Subscribe(conn) //Connection was re-established, start working again
 					if err != nil {
 						log.Error(err)
-					} else {
-						subscriber.sub = sub
+						conn.DeleteSubscriber(subscriber)
+						subscriber.errors <- err
+						return
 					}
+					subscriber.sub = sub
 				} else {
-					sub.Unsubscribe() //Connection lost, stop processing
+					err := conn.DeleteSubscriber(subscriber)
+					if err != nil {
+
+						log.Errorf("Problem unsubscribing: %v ", err)
+						subscriber.errors <- err
+						return
+					}
 				}
 			}
 		}

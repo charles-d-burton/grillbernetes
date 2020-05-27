@@ -214,7 +214,7 @@ func (conn *NATSConnection) GetSubscriber(topic string) (*Subscriber, error) {
 		log.Info("Subscriber found for topic: ", topic)
 		return subscriber, nil
 	}
-	if !subscriber.sub.IsValid() {
+	if subscriber != nil && !subscriber.sub.IsValid() {
 		log.Infof("Sub for %v topic is invalid, establishing new sub", topic)
 		delete(conn.subscribers, subscriber.topic)
 	}

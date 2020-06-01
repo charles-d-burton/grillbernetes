@@ -1,0 +1,31 @@
+{
+	"folders": [
+		{
+			"path": "vugu"
+		},
+		{
+			"path": "pub-hub"
+		},
+		{
+			"path": "k8sui"
+		},
+		{
+			"path": "doorbell"
+		},
+		{
+			"path": "auth-service"
+		},
+		{
+			"path": "control-hub"
+		},
+		{
+			"path": "pismoker"
+		},
+		{
+			"path": "flutter"
+		},
+		{
+			"path": "events"
+		}
+	]
+}

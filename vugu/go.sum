@@ -40,6 +40,8 @@ github.com/vugu/html v0.0.0-20190914200101-c62dc20b8289 h1:w3hfLuU5tKlcf+hhfmx6U
 github.com/vugu/html v0.0.0-20190914200101-c62dc20b8289/go.mod h1:Y3pLGz8dZUSrB9SARXqFmtW8RNs4HIGAr0+JaWL31Vg=
 github.com/vugu/vgrouter v0.0.0-20200406224410-145a62403c71 h1:kfhEwSRojpWVhmGIbk+mmaf48w3HontRJHBvLKIushc=
 github.com/vugu/vgrouter v0.0.0-20200406224410-145a62403c71/go.mod h1:dm0rVRcqBLwqSq4F9Mr12VY7p6bBhAm+vZ58+ff4sB4=
+github.com/vugu/vgrouter v0.0.0-20200428001807-e4d5549422bc h1:e+GwmGU1krdX0kG0h25ynZcxbbr8++v2dLXAYHLtg18=
+github.com/vugu/vgrouter v0.0.0-20200428001807-e4d5549422bc/go.mod h1:C+Uj+375LwtFuL5dNIMLNv/miLesGINzR04oWTyDb40=
 github.com/vugu/vgrun v0.0.0-20200413095632-da7c2a7eb99c h1:owWqozXdjlFtubKHzR5iPvZUy9viiZUy0VuWDLdwV+w=
 github.com/vugu/vgrun v0.0.0-20200413095632-da7c2a7eb99c/go.mod h1:1eGq5/lq0LG7SVGPBNhF/SPLdwBNCoySoSNs1kZN0PE=
 github.com/vugu/vjson v0.0.0-20191111004939-722507e863cb h1:svqBUd2ETVrsM31o/toxvK1WeVMan3vCgrpecE5vMlA=
@@ -47,6 +49,8 @@ github.com/vugu/vjson v0.0.0-20191111004939-722507e863cb/go.mod h1:z7mAqSUjRDMQ0
 github.com/vugu/vugu v0.1.1-0.20200406224150-50acda24c5ef/go.mod h1:kXK4tbS92o3x29D/W5kpOkysOm5IMd7OUu+pcqyIz0M=
 github.com/vugu/vugu v0.2.3 h1:tO0LG4YrIr6hpu+hgf/ccaMMjg3atvlVO+gq5m/2glw=
 github.com/vugu/vugu v0.2.3/go.mod h1:RFwOrlJHEkdZvrFcde4d6c0/7SqlRA8E4l2yz1Rs8xM=
+github.com/vugu/vugu v0.3.0 h1:/02oeyFqSU9+OZyG2A0NiF5WeRmiyXaD9WNdhit97BY=
+github.com/vugu/vugu v0.3.0/go.mod h1:RFwOrlJHEkdZvrFcde4d6c0/7SqlRA8E4l2yz1Rs8xM=
 github.com/vugu/xxhash v0.0.0-20191111030615-ed24d0179019 h1:8NGiD5gWbVGObr+lnqcbM2rcOQBO6mr+m19BIblCdho=
 github.com/vugu/xxhash v0.0.0-20191111030615-ed24d0179019/go.mod h1:PrBK6+LJXwb+3EnJTHo43Uh4FhjFFwvN4jKk4Zc5zZ8=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
@@ -58,6 +62,8 @@ golang.org/x/sys v0.0.0-20191008105621-543471e840be h1:QAcqgptGM8IQBC9K/RC4o+O9Y
 golang.org/x/sys v0.0.0-20191008105621-543471e840be/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f h1:gWF768j/LaZugp8dyS4UwsslYCYz9XgFxvlgsn0n9H8=
 golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20200523222454-059865788121 h1:rITEj+UZHYC927n8GT97eC3zrpzXdb/voyeOuVKS46o=
+golang.org/x/sys v0.0.0-20200523222454-059865788121/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=

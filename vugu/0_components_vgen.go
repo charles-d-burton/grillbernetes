@@ -40,7 +40,7 @@ type Update struct {
 	Timestamp	int64	`json:"timestamp"`
 }
 
-func (r *Root) HandleStreamInit(event *vugu.DOMEvent) {
+func (r *Root) HandleStreamInit(event vugu.DOMEvent) {
 	r.Stream = stream{}
 	ee := event.EventEnv()
 	go func() {

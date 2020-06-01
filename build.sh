@@ -3,7 +3,7 @@
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
 sudo apt update && sudo apt install -y parallel
-export builds=("events" "control-hub" "pub-hub")
+export builds=("events" "control-hub" "pub-hub", "auth-service")
 echo "Building ${builds[@]}"
 
 function buildServices() {

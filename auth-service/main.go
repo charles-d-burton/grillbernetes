@@ -145,7 +145,7 @@ func main() {
 		ValidateAccessToken(w, r)
 	})
 
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":7777", nil)
 }
 
 func checkMethod(r *http.Request) bool {

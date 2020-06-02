@@ -68,11 +68,18 @@ func init() {
 		MinIdleConns: 1,
 		MaxRetries:   5,
 	})
-	res, err := rc.Ping().Result()
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Info(res)
+	ticker := time.NewTicker(1000 * time.Millisecond)
+	go func() {
+		for range ticker.C {
+			res, err := rc.Ping().Result()
+			if err != nil {
+				log.Fatal(err)
+			}
+			if res == "PONG" {
+				log.Info(res)
+			}
+		}
+	}()
 }
 
 func usage() {
@@ -82,8 +89,17 @@ func usage() {
 func main() {
 	Sweep()
 	router := gin.Default()
+	router.GET("/healthz", HealthCheck)
 	router.POST("/:group/:device/:channel", PostData)
 	router.Run(":7777")
+}
+
+func HealthCheck(c *gin.Context) {
+	res, err := rc.Ping().Result()
+	if err != nil || res != "PONG" {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "redis died"})
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "alive"})
 }
 
 //PostData post message data to NATS Streaming for event processing

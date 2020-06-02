@@ -24,6 +24,15 @@ spec:
         app: pub-hub
     spec:
       containers:
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            httpHeaders:
+            - name: Custom-Header
+              value: Awesome
+          initialDelaySeconds: 3
+          periodSeconds: 2
       - name: pub-hub
         image: "charlesdburton/grillbernetes-pub-hub:latest"
         args:

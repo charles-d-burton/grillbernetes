@@ -24,20 +24,20 @@ spec:
         app: pub-hub
     spec:
       containers:
+      - name: pub-hub
+        image: "charlesdburton/grillbernetes-pub-hub:latest"
+        args:
+        - "-rd=redis:6379"
+        - "-nh=nats://nats-cluster:4222"
+        ports:
+        - containerPort: 7777
+        imagePullPolicy: Always
         livenessProbe:
           httpGet:
             path: /healthz
             port: 7777
           initialDelaySeconds: 3
           periodSeconds: 2
-      - name: pub-hub
-        image: "charlesdburton/grillbernetes-pub-hub:latest"
-        args:
-        - "-nh=nats://nats-cluster:4222"
-        - "-rd=redis:6379"
-        ports:
-        - containerPort: 7777
-        imagePullPolicy: Always
 ---
 apiVersion: networking.k8s.io/v1beta1
 kind: Ingress

@@ -20,19 +20,16 @@ RUN GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o a
 
 
 FROM scratch as arm
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build /go/bin/app /go/bin/app
+COPY --from=build-arm /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build-arm /app/auth-service /go/bin/auth-service
 ENTRYPOINT [ "/go/bin/auth-service" ]
 
 FROM scratch as arm64
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build /go/bin/app /go/bin/app
+COPY --from=build-arm64 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build-arm64 /app/auth-service /go/bin/auth-service
 ENTRYPOINT ["/go/bin/auth-service"]
 
 FROM scratch as amd64
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build /go/bin/app /go/bin/app
+COPY --from=build-amd64 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build-amd64 /app/auth-service /go/bin/auth-service
 ENTRYPOINT ["/go/bin/auth-service"]

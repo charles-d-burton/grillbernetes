@@ -1,16 +1,38 @@
-FROM golang:alpine as build
+FROM golang:latest as build-arm
 
-RUN apk add --update --no-cache ca-certificates git gcc libc-dev
 RUN mkdir /app
 WORKDIR /app
 COPY ./ .
+RUN GOOS=linux GOARCH=arm go build -a -installsuffix cgo -ldflags="-w -s" -o auth-service
 
-ARG GOARCH=amd64
-ENV GOARCH $GOARCH
-RUN echo "Building for arch: $GOARCH"
-RUN GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o /go/bin/app
+FROM golang:latest as build-arm64
+RUN mkdir /app
+WORKDIR /app
+COPY ./ .
+RUN GOOS=linux GOARCH=arm64 go build -a -installsuffix cgo -ldflags="-w -s" -o auth-service
 
-FROM scratch
+FROM golang:latest as build-amd64
+RUN mkdir /app
+WORKDIR /app
+COPY ./ .
+RUN GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o auth-service
+
+
+
+FROM scratch as arm
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /go/bin/app /go/bin/app
-ENTRYPOINT ["/go/bin/app"]
+COPY --from=build-arm /app/auth-service /go/bin/auth-service
+ENTRYPOINT [ "/go/bin/auth-service" ]
+
+FROM scratch as arm64
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /go/bin/app /go/bin/app
+COPY --from=build-arm64 /app/auth-service /go/bin/auth-service
+ENTRYPOINT ["/go/bin/auth-service"]
+
+FROM scratch as amd64
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /go/bin/app /go/bin/app
+COPY --from=build-amd64 /app/auth-service /go/bin/auth-service
+ENTRYPOINT ["/go/bin/auth-service"]

@@ -99,6 +99,7 @@ func HealthCheck(c *gin.Context) {
 	if err != nil || res != "PONG" {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "redis died"})
 	}
+	log.Info("healtz", "passed")
 	c.JSON(http.StatusOK, gin.H{"status": "alive"})
 }
 

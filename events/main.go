@@ -6,6 +6,7 @@ import (
 	"flag"
 	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -94,7 +95,6 @@ func main() {
 	}
 	if mockGen {
 		router.GET("/events/:device/:channel", MockGen)
-		router.Run(":7777")
 
 	} else {
 		// Make a new Broker instance
@@ -106,8 +106,15 @@ func main() {
 		env := &Env{nc}
 		router.GET("/events/:group/:device/:channel", env.Subscribe)
 		router.GET("/stream/:group/:device/:channel", env.Subscribe)
-		router.Run(":7777")
+		router.GET("/healthz", env.HealthCheck)
+
 	}
+	router.Run(":7777")
+}
+
+func (env *Env) HealthCheck(c *gin.Context) {
+	//TODO: monitor the NATS connection
+	c.JSON(http.StatusOK, gin.H{"status": "alive"})
 }
 
 //Subscribe gin context to subscribe to an event stream returning json

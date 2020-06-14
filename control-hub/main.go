@@ -47,10 +47,20 @@ func usage() {
 
 func main() {
 	router := gin.Default()
+	router.GET("/healthz", HealthCheck)
 	router.GET("/config/:group/:device/:config", GetConfig)
 	router.POST("/config/:group/:device/:config", SetConfig)
 	router.GET("/members/:group", GetDevices)
 	router.Run(":7777")
+}
+
+func HealthCheck(c *gin.Context) {
+	res, err := rc.Ping().Result()
+	if err != nil || res != "PONG" {
+		log.Error("redis connection failed")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "redis died"})
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "alive"})
 }
 
 //GetConfig retrieve a config from Redis

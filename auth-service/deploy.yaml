@@ -29,6 +29,20 @@ spec:
         ports:
         - containerPort: 7777
         imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 7777
+          initialDelaySeconds: 10
+          periodSeconds: 2
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 7777
+          initialDelaySeconds: 10
+          periodSeconds: 2
+          failureThreshold: 2
         env:
           - name: SERVER_MODE
             value: DEBUG

@@ -145,7 +145,13 @@ func main() {
 		ValidateAccessToken(w, r)
 	})
 
+	http.HandleFunc("/healthz", HealthCheck)
+
 	http.ListenAndServe(":7777", nil)
+}
+
+func HealthCheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }
 
 func checkMethod(r *http.Request) bool {

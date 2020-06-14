@@ -76,7 +76,7 @@ func init() {
 				log.Fatal(err)
 			}
 			if res == "PONG" {
-				log.Info(res)
+				//log.Info(res)
 			}
 		}
 	}()
@@ -97,9 +97,9 @@ func main() {
 func HealthCheck(c *gin.Context) {
 	res, err := rc.Ping().Result()
 	if err != nil || res != "PONG" {
+		log.Error("redis connection failed")
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "redis died"})
 	}
-	log.Info("healtz", "passed")
 	c.JSON(http.StatusOK, gin.H{"status": "alive"})
 }
 

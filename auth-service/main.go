@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -244,23 +245,36 @@ func (c *CognitoFlow) Username(w http.ResponseWriter, r *http.Request) {
 
 // Login handles login scenario.
 func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
 
-	username := r.Form.Get("username")
-	fmt.Println(username)
-	password := r.Form.Get("password")
-	refreshToken := r.Form.Get("refresh_token")
+	type userdata struct {
+		username     string `json:"username"`
+		password     string `json:"password,omitempty"`
+		refreshToken string `json:"refresh_token,omitempty"`
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	var user userdata
+	err = json.Unmarshal(body, &user)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	fmt.Println(user.username)
 
 	flow := aws.String(flowUsernamePassword)
 	params := map[string]*string{
-		"USERNAME": aws.String(username),
-		"PASSWORD": aws.String(password),
+		"USERNAME": aws.String(user.username),
+		"PASSWORD": aws.String(user.password),
 	}
 
-	if refreshToken != "" {
+	if user.refreshToken != "" {
 		flow = aws.String(flowRefreshToken)
 		params = map[string]*string{
-			"REFRESH_TOKEN": aws.String(refreshToken),
+			"REFRESH_TOKEN": &user.refreshToken,
 		}
 	}
 

@@ -247,6 +247,7 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	username := r.Form.Get("username")
+	fmt.Println(username)
 	password := r.Form.Get("password")
 	refreshToken := r.Form.Get("refresh_token")
 

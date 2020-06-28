@@ -257,6 +257,7 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+	fmt.Println(string(body))
 	var user userdata
 	err = json.Unmarshal(body, &user)
 	if err != nil {

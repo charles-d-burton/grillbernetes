@@ -1,0 +1,22 @@
+type User {
+  id: ID!
+  name: String!
+  accessToken: String
+  refreshToken: String
+}
+
+input Login {
+  email: String!
+  password: String
+  refreshToken: String
+}
+
+input NewUser {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  createUser(input: NewUser!):User!
+  login(input: Login!):User!
+}

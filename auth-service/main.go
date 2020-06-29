@@ -247,9 +247,9 @@ func (c *CognitoFlow) Username(w http.ResponseWriter, r *http.Request) {
 func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 
 	type userdata struct {
-		username     string `json:"username"`
-		password     string `json:"password,omitempty"`
-		refreshToken string `json:"refresh_token,omitempty"`
+		Username     string `json:"username"`
+		Password     string `json:"password,omitempty"`
+		RefreshToken string `json:"refresh_token,omitempty"`
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -264,18 +264,18 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	fmt.Println(user.username)
+	fmt.Println(user.Username)
 
 	flow := aws.String(flowUsernamePassword)
 	params := map[string]*string{
-		"USERNAME": aws.String(user.username),
-		"PASSWORD": aws.String(user.password),
+		"USERNAME": aws.String(user.Username),
+		"PASSWORD": aws.String(user.Password),
 	}
 
-	if user.refreshToken != "" {
+	if user.RefreshToken != "" {
 		flow = aws.String(flowRefreshToken)
 		params = map[string]*string{
-			"REFRESH_TOKEN": &user.refreshToken,
+			"REFRESH_TOKEN": &user.RefreshToken,
 		}
 	}
 

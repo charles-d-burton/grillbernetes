@@ -164,17 +164,28 @@ func checkMethod(r *http.Request) bool {
 
 // OTP handles code verification step.
 func (c *CognitoFlow) OTP(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	type otpdata struct {
+		OTP string `json:"otp"`
+	}
 
-	otp := r.Form.Get("otp")
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	var otp otpdata
+	err = json.Unmarshal(body, &otp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 
 	user := &cognitoidentityprovider.ConfirmSignUpInput{
-		ConfirmationCode: aws.String(otp),
+		ConfirmationCode: &otp.OTP,
 		Username:         aws.String(c.RegFlow.Username),
 		ClientId:         aws.String(c.AppClientID),
 	}
 
-	_, err := c.CognitoClient.ConfirmSignUp(user)
+	_, err = c.CognitoClient.ConfirmSignUp(user)
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, "", http.StatusNotAcceptable)
@@ -184,30 +195,45 @@ func (c *CognitoFlow) OTP(w http.ResponseWriter, r *http.Request) {
 
 // Register handles sign up scenario.
 func (c *CognitoFlow) Register(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	type userdata struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
+	}
 
-	username := r.Form.Get("username")
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	var userd userdata
+	err = json.Unmarshal(body, &userd)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	username := userd.Username
 	log.Infof("username: %v", username)
-	password := r.Form.Get("password")
+	password := userd.Password
 	if len(password) > 0 {
 		log.Infof("password is %d characters long", len(password))
 	}
-	email := r.Form.Get("email")
+	email := userd.Email
 	log.Infof("email: %v", email)
 
 	user := &cognitoidentityprovider.SignUpInput{
-		Username: aws.String(username),
-		Password: aws.String(password),
+		Username: &username,
+		Password: &password,
 		ClientId: aws.String(c.AppClientID),
 		UserAttributes: []*cognitoidentityprovider.AttributeType{
 			{
 				Name:  aws.String("email"),
-				Value: aws.String(email),
+				Value: &email,
 			},
 		},
 	}
 
-	_, err := c.CognitoClient.SignUp(user)
+	_, err = c.CognitoClient.SignUp(user)
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -218,19 +244,31 @@ func (c *CognitoFlow) Register(w http.ResponseWriter, r *http.Request) {
 
 // Username handles username scenario.
 func (c *CognitoFlow) Username(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	username := r.Form.Get("username")
+	type userdata struct {
+		Username string `json:"username"`
+	}
 
-	_, err := c.CognitoClient.AdminGetUser(&cognitoidentityprovider.AdminGetUserInput{
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	var userd userdata
+	err = json.Unmarshal(body, &userd)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	_, err = c.CognitoClient.AdminGetUser(&cognitoidentityprovider.AdminGetUserInput{
 		UserPoolId: aws.String(c.UserPoolID),
-		Username:   aws.String(username),
+		Username:   &userd.Username,
 	})
 
 	if err != nil {
 		awsErr, ok := err.(awserr.Error)
 		if ok {
 			if awsErr.Code() == cognitoidentityprovider.ErrCodeUserNotFoundException {
-				log.Info("Username %s is free", username)
+				log.Info("Username %s is free", &userd.Username)
 				return
 			}
 		} else {
@@ -239,7 +277,7 @@ func (c *CognitoFlow) Username(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Info("Username %s is taken.", username)
+	log.Info("Username %s is taken.", &userd.Username)
 	http.Error(w, "taken", http.StatusConflict)
 }
 
@@ -257,14 +295,13 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-	fmt.Println(string(body))
 	var user userdata
 	err = json.Unmarshal(body, &user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	fmt.Println(user.Username)
+	log.Info(user.Username)
 
 	flow := aws.String(flowUsernamePassword)
 	params := map[string]*string{
@@ -287,7 +324,7 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 
 	res, err := c.CognitoClient.InitiateAuth(authTry)
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 		awsErr, ok := err.(awserr.Error)
 		if ok {
 			if awsErr.Code() == cognitoidentityprovider.ErrCodeResourceNotFoundException {
@@ -311,14 +348,26 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error(err)
 	}
-	//json.NewEncoder(w).Encode(data)
 }
 
 //ValidateAccessToken verifies that the access token used is valid
 func ValidateAccessToken(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	tokenString := r.Form.Get("access_token")
-	_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	type tokendata struct {
+		Accestoken string `json:"access_token"`
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	var token tokendata
+	err = json.Unmarshal(body, &token)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	_, err = jwt.Parse(token.Accestoken, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}

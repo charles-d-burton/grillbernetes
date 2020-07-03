@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"io/ioutil"
@@ -24,6 +23,8 @@ import (
 	"periph.io/x/periph/conn/gpio"
 	"periph.io/x/periph/conn/gpio/gpioreg"
 	"periph.io/x/periph/host"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 /*const (
@@ -58,6 +59,8 @@ Options:
 	finalizer        = make(chan bool, 1)
 	controlState     ControlState
 	powered          = abool.New()
+
+	json = jsoniter.ConfigCompatibleWithStandardLibrary
 )
 
 func usage() {

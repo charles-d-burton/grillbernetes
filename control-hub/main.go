@@ -1,13 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 	"github.com/sirupsen/logrus"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 var (
@@ -16,13 +17,14 @@ Usage: pismoker [options]
 Options:
 	-rh, --redis-host       <NATSHost>     Start the controller connecting to the defined NATS Streaming server
 `
-	log = logrus.New()
-	rc  *redis.Client
+	log  = logrus.New()
+	rc   *redis.Client
+	json = jsoniter.ConfigCompatibleWithStandardLibrary
 )
 
 //Message data to publish to server
 type Message struct {
-	Data json.RawMessage `json:"config"`
+	Data jsoniter.RawMessage `json:"config"`
 }
 
 func init() {
@@ -54,6 +56,7 @@ func main() {
 	router.Run(":7777")
 }
 
+//HealthCheck k8s healthcheck path
 func HealthCheck(c *gin.Context) {
 	res, err := rc.Ping().Result()
 	if err != nil || res != "PONG" {

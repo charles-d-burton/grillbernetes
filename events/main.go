@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"io"
@@ -19,6 +18,8 @@ import (
 	nats "github.com/nats-io/nats.go"
 	stan "github.com/nats-io/stan.go"
 	"github.com/sirupsen/logrus"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 const (
@@ -34,7 +35,8 @@ Options:
 	-st, --subscribe-topic   <Topic>      Topic to listen for upate messages
 	-d,  --debug             <Nothing>    Debug flag, enables CORS
 `
-	log = logrus.New()
+	log  = logrus.New()
+	json = jsoniter.ConfigCompatibleWithStandardLibrary
 )
 
 func init() {
@@ -142,10 +144,10 @@ func (env *Env) Subscribe(c *gin.Context) {
 			return false
 		case message := <-queue:
 			if realSSE {
-				c.SSEvent("message", json.RawMessage(message))
+				c.SSEvent("message", jsoniter.RawMessage(message))
 				return true
 			}
-			c.JSON(200, json.RawMessage(message))
+			c.JSON(200, jsoniter.RawMessage(message))
 			c.String(200, "\n")
 			return true
 		case err := <-errs:
@@ -328,7 +330,7 @@ func (subscriber *Subscriber) Subscribe(conn *NATSConnection) (stan.Subscription
 	var datum = make(map[string]interface{}, 2)
 	sub, err := conn.Conn.Subscribe(subscriber.topic, func(m *stan.Msg) {
 		datum["timestamp"] = m.Timestamp
-		datum["data"] = json.RawMessage(m.Data)
+		datum["data"] = jsoniter.RawMessage(m.Data)
 		data, err := json.Marshal(datum)
 		if err != nil {
 			log.Error(err)
@@ -384,7 +386,7 @@ func MockGen(c *gin.Context) {
 			ticker.Stop()
 			return true
 		case message := <-buffer:
-			c.JSON(200, json.RawMessage(message))
+			c.JSON(200, jsoniter.RawMessage(message))
 			c.String(200, "\n")
 			//c.SSEvent("", message)
 			return true

@@ -1,10 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"net/http"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
@@ -20,14 +21,15 @@ Usage: pismoker [options]
 Options:
 	-nh, --nats-host       <NATSHost>     Start the controller connecting to the defined NATS Streaming server
 `
-	log = logrus.New()
-	sc  stan.Conn
-	rc  *redis.Client
+	log  = logrus.New()
+	sc   stan.Conn
+	rc   *redis.Client
+	json = jsoniter.ConfigCompatibleWithStandardLibrary
 )
 
 //Message data to publish to server
 type Message struct {
-	Data json.RawMessage `json:"data"`
+	Data jsoniter.RawMessage `json:"data"`
 }
 
 //Device represents a device with timestamp for ttl

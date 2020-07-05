@@ -10,57 +10,57 @@ jobs:
     runs-on: ubuntu-latest
     name: Build arm version of auth-service
     steps:
-        - uses: actions/checkout@v1
-        - name: Docker Login
+      - uses: actions/checkout@v1
+      - name: Docker Login
         run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
-        - name: Build Arm
+      - name: Build Arm
         working-directory: auth-service
         run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-auth-service:arm --target=arm --file=./Dockerfile .
-        - name: Push Image
+      - name: Push Image
         run: docker push charlesdburton/grillbernetes-auth-service:arm
-    auth-service-build-arm64:
+  auth-service-build-arm64:
     runs-on: ubuntu-latest
     name: Build arm64 version of auth-service
     steps:
         - uses: actions/checkout@v1
         - name: Docker Login
-        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
+          run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
         - name: Build Arm64
-        working-directory: auth-service
-        run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-auth-service:arm64 --target=arm64 --file=./Dockerfile .
+          working-directory: auth-service
+          run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-auth-service:arm64 --target=arm64 --file=./Dockerfile .
         - name: Push Image
-        run: docker push charlesdburton/grillbernetes-auth-service:arm64
-    auth-service-build-amd64:
+          run: docker push charlesdburton/grillbernetes-auth-service:arm64
+  auth-service-build-amd64:
     runs-on: ubuntu-latest
     name: Build amd64 version of auth-service
     steps:
         - uses: actions/checkout@v1
         - name: Docker Login
-        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
+          run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
         - name: Build AMD64
-        working-directory: auth-service
-        run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-auth-service:amd64 --target=amd64 --file=./Dockerfile .
+          working-directory: auth-service
+          run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-auth-service:amd64 --target=amd64 --file=./Dockerfile .
         - name: Push Image
-        run: docker push charlesdburton/grillbernetes-auth-service:amd64
-    auth-service-build-manifest:
+          run: docker push charlesdburton/grillbernetes-auth-service:amd64
+  auth-service-build-manifest:
     runs-on: ubuntu-latest
     name: Collect manifest and push
     needs: ["auth-service-build-arm", "auth-service-build-arm64", "auth-service-build-amd64"]
     steps:
         - uses: actions/checkout@v1
         - name: Docker Login
-        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
+          run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
         - name: Build Manifest
-        run: |
+          run: |
             DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create charlesdburton/grillbernetes-auth-service:latest \
             charlesdburton/grillbernetes-auth-service:amd64 \
             charlesdburton/grillbernetes-auth-service:arm \
             charlesdburton/grillbernetes-auth-service:arm64 
         - name: Annotate Arm
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm charlesdburton/grillbernetes-auth-service:latest charlesdburton/grillbernetes-auth-service:arm
+          run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm charlesdburton/grillbernetes-auth-service:latest charlesdburton/grillbernetes-auth-service:arm
         - name: Annotate Arm64
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm64 charlesdburton/grillbernetes-auth-service:latest charlesdburton/grillbernetes-auth-service:arm64
+          run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm64 charlesdburton/grillbernetes-auth-service:latest charlesdburton/grillbernetes-auth-service:arm64
         - name: Annotate AMD64
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch amd64 charlesdburton/grillbernetes-auth-service:latest charlesdburton/grillbernetes-auth-service:amd64
+          run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch amd64 charlesdburton/grillbernetes-auth-service:latest charlesdburton/grillbernetes-auth-service:amd64
         - name: Push Manifest
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-auth-service:latest
+          run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-auth-service:latest

@@ -1,0 +1,66 @@
+name: GatewayBuild
+
+on:
+  push:
+    branches:
+    - master
+
+jobs:
+  gateway-build-arm:
+    runs-on: ubuntu-latest
+    name: Build arm version of gateway
+    steps:
+      - uses: actions/checkout@v1
+      - name: Docker Login
+        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
+      - name: Build Arm
+        working-directory: gateway
+        run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-gateway:arm --target=arm --file=./Dockerfile .
+      - name: Push Image
+        run: docker push charlesdburton/grillbernetes-gateway:arm
+  gateway-build-arm64:
+    runs-on: ubuntu-latest
+    name: Build arm64 version of gateway
+    steps:
+      - uses: actions/checkout@v1
+      - name: Docker Login
+        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
+      - name: Build Arm64
+        working-directory: gateway
+        run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-gateway:arm64 --target=arm64 --file=./Dockerfile .
+      - name: Push Image
+        run: docker push charlesdburton/grillbernetes-gateway:arm64
+  gateway-build-amd64:
+    runs-on: ubuntu-latest
+    name: Build amd64 version of gateway
+    steps:
+      - uses: actions/checkout@v1
+      - name: Docker Login
+        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
+      - name: Build AMD64
+        working-directory: gateway
+        run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-gateway:amd64 --target=amd64 --file=./Dockerfile .
+      - name: Push Image
+        run: docker push charlesdburton/grillbernetes-gateway:amd64
+  gateway-build-manifest:
+    runs-on: ubuntu-latest
+    name: Collect manifest and push
+    needs: ["gateway-build-arm", "gateway-build-arm64", "gateway-build-amd64"]
+    steps:
+      - uses: actions/checkout@v1
+      - name: Docker Login
+        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
+      - name: Build Manifest
+        run: |
+          DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create charlesdburton/grillbernetes-gateway:latest \
+          charlesdburton/grillbernetes-gateway:amd64 \
+          charlesdburton/grillbernetes-gateway:arm \
+          charlesdburton/grillbernetes-gateway:arm64 
+      - name: Annotate Arm
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm charlesdburton/grillbernetes-gateway:latest charlesdburton/grillbernetes-gateway:arm
+      - name: Annotate Arm64
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm64 charlesdburton/grillbernetes-gateway:latest charlesdburton/grillbernetes-gateway:arm64
+      - name: Annotate AMD64
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch amd64 charlesdburton/grillbernetes-gateway:latest charlesdburton/grillbernetes-gateway:amd64
+      - name: Push Manifest
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-gateway:latest

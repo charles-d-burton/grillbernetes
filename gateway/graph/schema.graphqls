@@ -1,13 +1,18 @@
 type User {
   id: ID!
-  name: String!
+  email: String!
   accessToken: String
   refreshToken: String
+}
+
+input Username {
+  username: String!
 }
 
 input Login {
   email: String!
   password: String
+  accessToken: String
   refreshToken: String
 }
 
@@ -16,7 +21,13 @@ input NewUser {
   password: String!
 }
 
+#type Query {
+#  userTaken()
+#}
+
 type Mutation {
-  createUser(input: NewUser!):User!
+  register(input: NewUser!):Boolean!
   login(input: Login!):User!
+  signOut(input: Login!):Boolean!
+  userAvailable(input: Username!):Boolean!
 }

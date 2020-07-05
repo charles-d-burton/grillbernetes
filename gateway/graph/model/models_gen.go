@@ -5,6 +5,7 @@ package model
 type Login struct {
 	Email        string  `json:"email"`
 	Password     *string `json:"password"`
+	AccessToken  *string `json:"accessToken"`
 	RefreshToken *string `json:"refreshToken"`
 }
 
@@ -14,8 +15,12 @@ type NewUser struct {
 }
 
 type User struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	AccessToken  string `json:"accessToken"`
-	RefreshToken string `json:"refreshToken"`
+	ID           string  `json:"id"`
+	Email        string  `json:"email"`
+	AccessToken  *string `json:"accessToken"`
+	RefreshToken *string `json:"refreshToken"`
+}
+
+type Username struct {
+	Username string `json:"username"`
 }

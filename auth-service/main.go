@@ -136,6 +136,16 @@ func main() {
 		ValidateAccessToken(w, r)
 	})
 
+	http.HandleFunc("/signout", func(w http.ResponseWriter, r *http.Request) {
+		if debug {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
+		if !checkMethod(r) {
+			http.Error(w, "", http.StatusBadRequest)
+		}
+		c.Signout(w, r)
+	})
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if debug {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -151,6 +161,7 @@ func main() {
 	http.ListenAndServe(":7777", nil)
 }
 
+//HealthCheck K8S healthcheck endpoint
 func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
@@ -233,10 +244,15 @@ func (c *CognitoFlow) Register(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	_, err = c.CognitoClient.SignUp(user)
+	output, err := c.CognitoClient.SignUp(user)
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !*output.UserConfirmed {
+		log.Error("user registration failed")
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -388,4 +404,48 @@ func ValidateAccessToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusForbidden)
 		return
 	}
+}
+
+//Signout  sign out of the platform
+func (c *CognitoFlow) Signout(w http.ResponseWriter, r *http.Request) {
+	type tokendata struct {
+		Accesstoken string `json:"access_token"`
+	}
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	var token tokendata
+	err = json.Unmarshal(body, &token)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+	}
+
+	_, err = c.CognitoClient.GlobalSignOut(&cognitoidentityprovider.GlobalSignOutInput{
+		AccessToken: &token.Accesstoken,
+	})
+
+	if err != nil {
+		log.Error(err)
+		awsErr, ok := err.(awserr.Error)
+		if ok {
+			switch awsErr.Code() {
+			case cognitoidentityprovider.ErrCodeResourceNotFoundException:
+				http.Error(w, "", http.StatusNotFound)
+				return
+			case cognitoidentityprovider.ErrCodeNotAuthorizedException:
+				http.Error(w, "", http.StatusUnauthorized)
+				return
+			case cognitoidentityprovider.ErrCodeTooManyRequestsException:
+				http.Error(w, "", http.StatusTooManyRequests)
+				return
+			default:
+				http.Error(w, "", http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+	return
 }

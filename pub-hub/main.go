@@ -29,7 +29,7 @@ Options:
 
 //Message data to publish to server
 type Message struct {
-	Data []byte `json:"data"`
+	Data jsoniter.RawMessage `json:"data"`
 }
 
 //Device represents a device with timestamp for ttl
@@ -109,6 +109,7 @@ func HealthCheck(c *gin.Context) {
 func PostData(c *gin.Context) {
 	var msg Message
 	if err := c.ShouldBindJSON(&msg); err != nil {
+		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

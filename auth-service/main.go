@@ -181,12 +181,14 @@ func (c *CognitoFlow) OTP(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	var otp otpdata
 	err = json.Unmarshal(body, &otp)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
@@ -198,7 +200,7 @@ func (c *CognitoFlow) OTP(w http.ResponseWriter, r *http.Request) {
 
 	_, err = c.CognitoClient.ConfirmSignUp(user)
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 		http.Error(w, "", http.StatusNotAcceptable)
 		return
 	}
@@ -214,12 +216,14 @@ func (c *CognitoFlow) Register(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	var userd userdata
 	err = json.Unmarshal(body, &userd)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
@@ -246,7 +250,7 @@ func (c *CognitoFlow) Register(w http.ResponseWriter, r *http.Request) {
 
 	output, err := c.CognitoClient.SignUp(user)
 	if err != nil {
-		fmt.Println(err)
+		log.Error(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -266,12 +270,14 @@ func (c *CognitoFlow) Username(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	var userd userdata
 	err = json.Unmarshal(body, &userd)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
@@ -288,6 +294,7 @@ func (c *CognitoFlow) Username(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
+			log.Error(err)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
@@ -308,12 +315,14 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	var user userdata
 	err = json.Unmarshal(body, &user)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
@@ -374,12 +383,14 @@ func ValidateAccessToken(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	var token tokendata
 	err = json.Unmarshal(body, &token)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
@@ -413,6 +424,7 @@ func (c *CognitoFlow) Signout(w http.ResponseWriter, r *http.Request) {
 	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
@@ -420,7 +432,9 @@ func (c *CognitoFlow) Signout(w http.ResponseWriter, r *http.Request) {
 	var token tokendata
 	err = json.Unmarshal(body, &token)
 	if err != nil {
+		log.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)
+		return
 	}
 
 	_, err = c.CognitoClient.GlobalSignOut(&cognitoidentityprovider.GlobalSignOutInput{

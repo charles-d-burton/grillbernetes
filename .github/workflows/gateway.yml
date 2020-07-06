@@ -2,6 +2,9 @@ name: GatewayBuild
 
 on:
   push:
+    paths:
+    - 'gateway/**.go'
+    - 'gateway/Dockerfile'
     branches:
     - master
 

@@ -2,6 +2,9 @@ name: PubHubBuild
 
 on:
   push:
+    paths:
+    - 'pub-hub/**.go'
+    - 'pub-hub/Dockerfile'
     branches:
     - master
 

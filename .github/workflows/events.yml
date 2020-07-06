@@ -3,6 +3,9 @@ name: EventsBuild
 
 on:
   push:
+    paths:
+    - 'events/**.go'
+    - 'events/Dockerfile'
     branches:
     - master
 

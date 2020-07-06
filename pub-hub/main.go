@@ -29,7 +29,7 @@ Options:
 
 //Message data to publish to server
 type Message struct {
-	Data jsoniter.RawMessage `json:"data"`
+	Data []byte `json:"data"`
 }
 
 //Device represents a device with timestamp for ttl

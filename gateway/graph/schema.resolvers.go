@@ -4,7 +4,6 @@ package graph
 // will be copied through when generating and any unknown code will be moved to the end.
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -14,8 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 	"github.com/charles-d-burton/grillbernetes/gateway/graph/generated"
 	"github.com/charles-d-burton/grillbernetes/gateway/graph/model"
-	jsoniter "github.com/json-iterator/go"
-	"github.com/sirupsen/logrus"
 )
 
 func (r *mutationResolver) Register(ctx context.Context, input model.NewUser) (bool, error) {
@@ -141,35 +138,3 @@ func (r *mutationResolver) UserAvailable(ctx context.Context, input model.Userna
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
 type mutationResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-func (r *mutationResolver) CreateUser(ctx context.Context, input model.NewUser) (*model.User, error) {
-	accesstokenPlaceholder := "access-token"
-	refreshtokenPlaceholder := "refresh-token"
-	var user model.User
-	user.ID = "charles.d.burton@gmail.com"
-	user.Email = "charles.d.burton@gmail.com"
-	user.AccessToken = &accesstokenPlaceholder
-	user.RefreshToken = &refreshtokenPlaceholder
-	return &user, nil
-}
-func makeReq(url string, data []byte) (*http.Response, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data)) //This is inefficient, should change to pool of handlers with re-usable buffers
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	return client.Do(req)
-}
-
-var (
-	json    = jsoniter.ConfigCompatibleWithStandardLibrary
-	log     = logrus.New()
-	authURL = "https://auth.home.rsmachiner.com"
-)

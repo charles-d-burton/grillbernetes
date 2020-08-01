@@ -5,6 +5,12 @@ type User {
   refreshToken: String
 }
 
+type Device {
+  id: String!
+  topic: String!
+  type: String
+}
+
 input Username {
   username: String!
 }
@@ -21,13 +27,20 @@ input NewUser {
   password: String!
 }
 
-#type Query {
-#  userTaken()
-#}
+input SendData {
+  id: String!
+  apiToken: String!
+  type: String
+}
+
+type Query {
+  devices: [Device!]!
+}
 
 type Mutation {
   register(input: NewUser!):Boolean!
   login(input: Login!):User!
   signOut(input: Login!):Boolean!
   userAvailable(input: Username!):Boolean!
+  addDevice(input: SendData!):Boolean!
 }

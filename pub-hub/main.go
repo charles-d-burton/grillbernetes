@@ -114,6 +114,7 @@ func PostData(c *gin.Context) {
 		return
 	}
 	log.Info("Publishing to: ", c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"))
+	//TODO: Need to thread this probably
 	err := sc.Publish(c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"), msg.Data)
 	if err != nil {
 		log.Error(err)
@@ -157,13 +158,18 @@ func Sweep() {
 			case <-ticker.C:
 				log.Info("Running sweep")
 				for {
-					var keys []string
-					var err error
-					keys, cursor, err = rc.SScan("*", cursor, "*", 10).Result()
+					//var keys []string
+					//var err error
+					keys, cursor, err := rc.SScan("*", cursor, "*", 10).Result()
 					if err != nil {
 						panic(err)
 					}
 					for _, key := range keys { //TODO: Implement logic to cleanup old set entries
+						duration := rc.ObjectIdleTime(key)
+						idleTime := int64(duration.Val() / time.Second)
+						if idleTime > 86400 { //Delete keys that haven't been accessed in 24 hours
+							rc.Del(key)
+						}
 						log.Info(key)
 					}
 					if cursor == 0 {

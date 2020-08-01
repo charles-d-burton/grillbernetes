@@ -134,7 +134,19 @@ func (r *mutationResolver) UserAvailable(ctx context.Context, input model.Userna
 	return true, nil
 }
 
+func (r *mutationResolver) AddDevice(ctx context.Context, input model.NewDevice) (bool, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
+func (r *queryResolver) Devices(ctx context.Context) ([]*model.Device, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
+// Query returns generated.QueryResolver implementation.
+func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
+
 type mutationResolver struct{ *Resolver }
+type queryResolver struct{ *Resolver }

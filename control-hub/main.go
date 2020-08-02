@@ -97,7 +97,7 @@ func SetConfig(c *gin.Context) {
 
 //GetDevices Get all the devices and return them to the client
 func GetDevices(c *gin.Context) {
-	devices, err := rc.SMembers(c.Param("group") + "-" + c.Param("device")).Result()
+	devices, err := rc.HGetAll(c.Param("group")).Result()
 	if err != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
 		log.Fatal(err)

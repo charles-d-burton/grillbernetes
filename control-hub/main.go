@@ -98,16 +98,16 @@ func SetConfig(c *gin.Context) {
 //GetDevices Get all the devices and return them to the client
 func GetDevices(c *gin.Context) {
 	devices, err := rc.HGetAll(c.Param("group")).Result()
+	devicesArr := make([]json.RawMessage, len(devices))
 	if err != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
 		log.Fatal(err)
 		return
 	}
-	if len(devices) == 0 {
-		c.JSON(http.StatusOK, devices)
-		return
+	for _, value := range devices {
+		devicesArr = append(devicesArr, json.RawMessage(value))
 	}
-	data, err := json.Marshal(devices)
+	data, err := json.Marshal(devicesArr)
 	if err != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
 		log.Fatal(err)

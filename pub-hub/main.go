@@ -1,11 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"net/http"
 	"time"
-
-	jsoniter "github.com/json-iterator/go"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
@@ -21,15 +20,14 @@ Usage: pismoker [options]
 Options:
 	-nh, --nats-host       <NATSHost>     Start the controller connecting to the defined NATS Streaming server
 `
-	log  = logrus.New()
-	sc   stan.Conn
-	rc   *redis.Client
-	json = jsoniter.ConfigCompatibleWithStandardLibrary
+	log = logrus.New()
+	sc  stan.Conn
+	rc  *redis.Client
 )
 
 //Message data to publish to server
 type Message struct {
-	Data []byte `json:"data"`
+	Data json.RawMessage `json:"data"`
 }
 
 type HsetValue struct {
@@ -121,8 +119,6 @@ func PostData(c *gin.Context) {
 	}
 	log.Info("Publishing to: ", c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"))
 	//TODO: Need to thread this probably, a pool of workers would be a good idea here
-	//data := make([]byte, base64.StdEncoding.DecodedLen(len(msg.Data))) //Jsoniter doesn't handle rawmessage right
-	//n, _ := base64.StdEncoding.Decode(data, msg.Data)
 	err := sc.Publish(c.Param("group")+"."+c.Param("device")+"."+c.Param("channel"), msg.Data)
 	if err != nil {
 		log.Error(err)
@@ -177,7 +173,7 @@ func (hval *HsetValue) Update(group string) error {
 func Sweep() {
 	log.Info("Starting ttl cleanup")
 	go func() {
-		ticker := time.NewTicker(240 * time.Second)
+		ticker := time.NewTicker(10 * time.Second)
 		var cursor uint64
 		for {
 			select {

@@ -93,7 +93,7 @@ func usage() {
 }
 
 func main() {
-	Sweep()
+	//Sweep()
 	router := gin.Default()
 	router.GET("/healthz", HealthCheck)
 	router.POST("/:group/:device/:channel", PostData)
@@ -138,23 +138,6 @@ func PostData(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "accepted"})
-}
-
-//RegisterDevice addes a device to the set for connected device tracking
-func RegisterDevice(group, device string) error {
-	var dev Device
-	dev.ID = device
-	dev.LastContact = time.Now().Unix()
-	data, err := json.Marshal(&dev)
-	if err != nil {
-		return err
-	}
-	err = rc.SAdd(group+"-"+device, data).Err()
-	if err != nil {
-		return err
-	}
-	log.Println("Successfully added device: ", device)
-	return nil
 }
 
 //Update update the device in a redis hashtable

@@ -1,9 +1,8 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
-	"crypto/sha1"
-	"encoding/hex"
 	"errors"
 	"flag"
 	"io/ioutil"
@@ -95,9 +94,11 @@ func init() {
 		}
 		//TODO: Probably should just create a UUID and perform a store/reload check
 		machineName = strings.Replace(name, ".", "-", -1)
-		h := sha1.New()
-		h.Write([]byte(machineName))
-		id = hex.EncodeToString(h.Sum(nil))
+		serial, err := GetSerial()
+		if err != nil {
+			log.Fatal(err)
+		}
+		id = serial
 	}
 	log.Println("Starting GPIO initialization")
 	if _, err := host.Init(); err != nil {
@@ -124,9 +125,11 @@ type PIDState struct {
 
 //Reading data structure to hold sensor data
 type Reading struct {
-	ID string  `json:"id"`
-	F  float32 `json:"f"`
-	C  float32 `json:"c"`
+	ID      string  `json:"id"`
+	Running bool    `json:"running"`
+	Name    string  `json:"name"`
+	F       float32 `json:"f"`
+	C       float32 `json:"c"`
 }
 
 // NOTE: Use tls scheme for TLS, e.g. stan-sub -s tls://demo.nats.io:4443 foo
@@ -210,28 +213,31 @@ func PublishEvents() chan Reading {
 				finalizer <- true
 				break
 			}
-			if powered.IsSet() { //Only publish data when the machine is on
-				dataMap["data"] = reading
-				data, err := json.Marshal(dataMap)
+			if powered.IsSet() { //Set the current machine run state
+				reading.Running = true
+			} else {
+				reading.Running = false
+			}
+			dataMap["data"] = reading
+			data, err := json.Marshal(dataMap)
+			if err != nil {
+				log.Println(err)
+			} else {
+				buf.Write(data)
+				resp, err := http.Post(eventStream, "application/json", &buf)
 				if err != nil {
 					log.Println(err)
 				} else {
-					buf.Write(data)
-					resp, err := http.Post(eventStream, "application/json", &buf)
+					body, err := ioutil.ReadAll(resp.Body)
 					if err != nil {
 						log.Println(err)
+					} else if resp.StatusCode != http.StatusOK {
+						log.Println("Response from server not OK: ", resp.Status)
 					} else {
-						body, err := ioutil.ReadAll(resp.Body)
-						if err != nil {
-							log.Println(err)
-						} else if resp.StatusCode != http.StatusOK {
-							log.Println("Response from server not OK: ", resp.Status)
-						} else {
-							log.Println(resp.Status)
-							log.Println(string(body))
-						}
-						resp.Body.Close()
+						log.Println(resp.Status)
+						log.Println(string(body))
 					}
+					resp.Body.Close()
 				}
 			}
 			buf.Reset()
@@ -286,12 +292,14 @@ func PidLoop() chan Reading {
 							log.Println(err)
 							ResetPin(p)
 						}
+
 					} else {
 						log.Println("Turning on relay")
 						if err := p.Out(gpio.High); err != nil {
 							log.Println(err)
 							ResetPin(p)
 						}
+
 					}
 				} else {
 					log.Println("Relay Powered Off")
@@ -299,6 +307,7 @@ func PidLoop() chan Reading {
 						log.Println(err)
 
 					}
+
 				}
 			case <-signalChan: //Stop reading on SIGTERM, shutdown relay for safety
 				log.Println("Turning off Relay due to process stop")
@@ -401,4 +410,25 @@ func CtoF(c float64) float64 {
 //FtoC conver farenheit to celsius
 func FtoC(f float64) float64 {
 	return ((f - 32) * 5 / 9)
+}
+
+func GetSerial() (string, err) {
+	file, err := os.Open("/proc/cpuinfo")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		res := strings.Contains(line, "Serial")
+		if res {
+			serial := strings.TrimSpace(strings.Split(line, ":")[1])
+			return serial, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", nil
 }

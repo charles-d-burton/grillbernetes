@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"flag"
 	"net/http"
 	"time"
@@ -30,7 +29,7 @@ Options:
 
 //Message data to publish to server
 type Message struct {
-	Data jsoniter.RawMessage `json:"data"`
+	Data []byte `json:"data"`
 }
 
 type HsetValue struct {
@@ -122,9 +121,9 @@ func PostData(c *gin.Context) {
 	}
 	log.Info("Publishing to: ", c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"))
 	//TODO: Need to thread this probably, a pool of workers would be a good idea here
-	data := make([]byte, base64.StdEncoding.DecodedLen(len(msg.Data))) //Jsoniter doesn't handle rawmessage right
-	n, _ := base64.StdEncoding.Decode(data, msg.Data)
-	err := sc.Publish(c.Param("group")+"."+c.Param("device")+"."+c.Param("channel"), data[:n])
+	//data := make([]byte, base64.StdEncoding.DecodedLen(len(msg.Data))) //Jsoniter doesn't handle rawmessage right
+	//n, _ := base64.StdEncoding.Decode(data, msg.Data)
+	err := sc.Publish(c.Param("group")+"."+c.Param("device")+"."+c.Param("channel"), msg.Data)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

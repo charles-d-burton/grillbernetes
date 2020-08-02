@@ -148,10 +148,10 @@ func (env *Env) Subscribe(c *gin.Context) {
 			return false
 		case message := <-queue:
 			if realSSE {
-				c.SSEvent("message", string(message))
+				c.SSEvent("message", message)
 				return true
 			}
-			c.JSON(200, string(message))
+			c.JSON(200, message)
 			c.String(200, "\n")
 			return true
 		case err := <-errs:

@@ -117,8 +117,10 @@ func PostData(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	log.Info("Publishing to: ", c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"))
 	//TODO: Need to thread this probably, a pool of workers would be a good idea here
+	log.Info("Msg: ", string(msg.Data))
 	err := sc.Publish(c.Param("group")+"."+c.Param("device")+"."+c.Param("channel"), msg.Data)
 	if err != nil {
 		log.Error(err)

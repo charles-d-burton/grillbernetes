@@ -93,6 +93,7 @@ func init() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		//TODO: Probably should just create a UUID and perform a store/reload check
 		machineName = strings.Replace(name, ".", "-", -1)
 		h := sha1.New()
 		h.Write([]byte(machineName))
@@ -200,6 +201,7 @@ func PublishEvents() chan Reading {
 	reads := make(chan Reading, 1000)
 	eventStream := dataHost + "/" + group + "/" + machineName + "/readings"
 	dataMap := make(map[string]Reading, 1)
+	var buf bytes.Buffer
 	go func() {
 		for {
 			reading, ok := <-reads
@@ -214,7 +216,8 @@ func PublishEvents() chan Reading {
 				if err != nil {
 					log.Println(err)
 				} else {
-					resp, err := http.Post(eventStream, "application/json", bytes.NewBuffer(data))
+					buf.Write(data)
+					resp, err := http.Post(eventStream, "application/json", &buf)
 					if err != nil {
 						log.Println(err)
 					} else {
@@ -231,6 +234,7 @@ func PublishEvents() chan Reading {
 					}
 				}
 			}
+			buf.Reset()
 		}
 	}()
 	return reads

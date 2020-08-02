@@ -32,6 +32,12 @@ type Message struct {
 	Data jsoniter.RawMessage `json:"data"`
 }
 
+type HsetValue struct {
+	Device      string `json:"device"`
+	TimeSeconds int64  `json:"time_seconds"`
+	Channel     string `json:"channel"`
+}
+
 //Device represents a device with timestamp for ttl
 type Device struct {
 	ID          string `json:"id"`
@@ -114,14 +120,18 @@ func PostData(c *gin.Context) {
 		return
 	}
 	log.Info("Publishing to: ", c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"))
-	//TODO: Need to thread this probably
-	err := sc.Publish(c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"), msg.Data)
+	//TODO: Need to thread this probably, a pool of workers would be a good idea here
+	err := sc.Publish(c.Param("group")+"."+c.Param("device")+"."+c.Param("channel"), msg.Data)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	err = RegisterDevice(c.Param("group"), c.Param("device"))
+	var hval HsetValue
+	hval.Channel = c.Param("channel")
+	hval.Device = c.Param("device")
+	hval.TimeSeconds = time.Now().Unix()
+	err = hval.Update(c.Param("group"))
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -147,11 +157,25 @@ func RegisterDevice(group, device string) error {
 	return nil
 }
 
+//Update update the device in a redis hashtable
+func (hval *HsetValue) Update(group string) error {
+	data, err := json.Marshal(&hval)
+	if err != nil {
+		return err
+	}
+	err = rc.HSet(group, hval.Device, string(data)).Err()
+	if err != nil {
+		return err
+	}
+	log.Infof("Device %v added to HSET %v", hval.Device, group)
+	return nil
+}
+
 //Sweep Periodically clean up the set
 func Sweep() {
 	log.Info("Starting ttl cleanup")
 	go func() {
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := time.NewTicker(240 * time.Second)
 		var cursor uint64
 		for {
 			select {
@@ -160,17 +184,17 @@ func Sweep() {
 				for {
 					//var keys []string
 					//var err error
-					keys, cursor, err := rc.SScan("*", cursor, "*", 10).Result()
+					keys, cursor, err := rc.HScan("*", cursor, "*", 200).Result()
 					if err != nil {
 						panic(err)
 					}
 					for _, key := range keys { //TODO: Implement logic to cleanup old set entries
-						duration := rc.ObjectIdleTime(key)
+						/*duration := rc.ObjectIdleTime(key)
 						idleTime := int64(duration.Val() / time.Second)
 						if idleTime > 86400 { //Delete keys that haven't been accessed in 24 hours
 							rc.Del(key)
-						}
-						log.Info(key)
+						}*/
+						log.Infof("KEY: %v", key)
 					}
 					if cursor == 0 {
 						break

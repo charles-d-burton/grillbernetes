@@ -61,11 +61,17 @@ type Subscriber struct {
 	topic           string
 	sub             stan.Subscription
 	connEstablished chan bool
-	clients         map[chan string]bool
-	newClients      chan chan string
-	defunctClients  chan chan string
-	messages        chan string
+	clients         map[chan []byte]bool
+	newClients      chan chan []byte
+	defunctClients  chan chan []byte
+	messages        chan []byte
 	errors          chan error
+}
+
+//Message message object to send back to subsriber
+type Message struct {
+	Timestamp int64  `json:"timestamp"`
+	Datum     []byte `json:"datum"`
 }
 
 func main() {
@@ -125,7 +131,7 @@ func (env *Env) Subscribe(c *gin.Context) {
 	device := c.Param("device")
 	channel := c.Param("channel")
 	group := c.Param("group")
-	topic := group + "-" + device + "-" + channel
+	topic := group + "." + device + "." + channel
 	log.Info("Subscribing to topic: ", topic)
 	subscriber, err := env.natsConn.GetSubscriber(topic)
 	if err != nil {
@@ -133,7 +139,7 @@ func (env *Env) Subscribe(c *gin.Context) {
 		return
 	}
 	log.Info("Got subscriber from NATS Connection")
-	queue := make(chan string, queuelen)
+	queue := make(chan []byte, queuelen)
 	errs := make(chan error, 1)
 	subscriber.newClients <- queue //Add our new client to the recipient list
 	clientGone := c.Writer.CloseNotify()
@@ -144,10 +150,10 @@ func (env *Env) Subscribe(c *gin.Context) {
 			return false
 		case message := <-queue:
 			if realSSE {
-				c.SSEvent("message", jsoniter.RawMessage(message))
+				c.SSEvent("message", message)
 				return true
 			}
-			c.JSON(200, jsoniter.RawMessage(message))
+			c.JSON(200, message)
 			c.String(200, "\n")
 			return true
 		case err := <-errs:
@@ -232,10 +238,10 @@ func (conn *NATSConnection) GetSubscriber(topic string) (*Subscriber, error) {
 	subscriber = &Subscriber{
 		topic:           topic,
 		connEstablished: make(chan bool, 1),
-		clients:         make(map[chan string]bool, 10),
-		newClients:      make(chan (chan string)),
-		defunctClients:  make(chan (chan string)),
-		messages:        make(chan string, 10),
+		clients:         make(map[chan []byte]bool, 10),
+		newClients:      make(chan (chan []byte)),
+		defunctClients:  make(chan (chan []byte)),
+		messages:        make(chan []byte, 10),
 		errors:          make(chan error, 1),
 	}
 	err := subscriber.Start(conn)
@@ -327,15 +333,15 @@ func (subscriber *Subscriber) Start(conn *NATSConnection) error {
 func (subscriber *Subscriber) Subscribe(conn *NATSConnection) (stan.Subscription, error) {
 	log.Info("Initializing callback")
 	log.Info("Subscription topic is: ", subscriber.topic)
-	var datum = make(map[string]interface{}, 2)
 	sub, err := conn.Conn.Subscribe(subscriber.topic, func(m *stan.Msg) {
-		datum["timestamp"] = m.Timestamp
-		datum["data"] = jsoniter.RawMessage(m.Data)
-		data, err := json.Marshal(datum)
+		var msg Message
+		msg.Timestamp = m.Timestamp
+		msg.Datum = m.Data
+		data, err := json.Marshal(&msg)
 		if err != nil {
 			log.Error(err)
 		} else {
-			subscriber.messages <- string(data)
+			subscriber.messages <- data
 		}
 	}, stan.StartWithLastReceived())
 	if err != nil {
@@ -386,7 +392,7 @@ func MockGen(c *gin.Context) {
 			ticker.Stop()
 			return true
 		case message := <-buffer:
-			c.JSON(200, jsoniter.RawMessage(message))
+			c.JSON(200, message)
 			c.String(200, "\n")
 			//c.SSEvent("", message)
 			return true

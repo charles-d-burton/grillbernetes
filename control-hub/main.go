@@ -95,6 +95,7 @@ func SetConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "accepted"})
 }
 
+//TODO: Add pagination
 //GetDevices Get all the devices and return them to the client
 func GetDevices(c *gin.Context) {
 	devices, err := rc.HGetAll(c.Param("group")).Result()

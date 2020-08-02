@@ -48,9 +48,9 @@ func usage() {
 func main() {
 	router := gin.Default()
 	router.GET("/healthz", HealthCheck)
-	router.GET("/config/:group/:device/:config", GetConfig)
-	router.POST("/config/:group/:device/:config", SetConfig)
-	router.GET("/members/:group", GetDevices)
+	router.GET("/config/:group/:deviceid/:config", GetConfig)
+	router.POST("/config/:group/:deviceid/:config", SetConfig)
+	router.GET("/devices/:group", GetDevices)
 	router.Run(":7777")
 }
 
@@ -66,9 +66,9 @@ func HealthCheck(c *gin.Context) {
 
 //GetConfig retrieve a config from Redis
 func GetConfig(c *gin.Context) {
-	val, err := rc.Get(c.Param("device") + "/" + c.Param("config")).Result()
+	val, err := rc.Get(c.Param("deviceid") + "/" + c.Param("config")).Result()
 	if err == redis.Nil {
-		log.Info("No data for key: ", c.Param("device")+"/"+c.Param("config"))
+		log.Info("No data for key: ", c.Param("deviceid")+"/"+c.Param("config"))
 	} else if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		log.Fatal(err)
@@ -86,7 +86,7 @@ func SetConfig(c *gin.Context) {
 		return
 	}
 	log.Info("Message parsed, sending to Redis")
-	err := rc.Set(c.Param("device")+"/"+c.Param("config"), []byte(msg.Data), 0).Err()
+	err := rc.Set(c.Param("deviceid")+"/"+c.Param("config"), []byte(msg.Data), 0).Err()
 	if err != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
 		log.Fatal(err)
@@ -99,7 +99,7 @@ func SetConfig(c *gin.Context) {
 //GetDevices Get all the devices and return them to the client
 func GetDevices(c *gin.Context) {
 	devices, err := rc.HGetAll(c.Param("group")).Result()
-	devicesArr := make([]json.RawMessage, len(devices))
+	devicesArr := make([]json.RawMessage, 0)
 	if err != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
 		log.Fatal(err)

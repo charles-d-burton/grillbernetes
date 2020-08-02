@@ -412,7 +412,7 @@ func FtoC(f float64) float64 {
 	return ((f - 32) * 5 / 9)
 }
 
-func GetSerial() (string, err) {
+func GetSerial() (string, error) {
 	file, err := os.Open("/proc/cpuinfo")
 	if err != nil {
 		return "", err

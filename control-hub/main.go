@@ -113,5 +113,5 @@ func GetDevices(c *gin.Context) {
 		log.Fatal(err)
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	c.JSON(http.StatusOK, json.RawMessage(data))
 }

@@ -69,7 +69,7 @@ type Subscriber struct {
 //Message message object to send back to subsriber
 type Message struct {
 	Timestamp int64           `json:"timestamp"`
-	Datum     json.RawMessage `json:"datum"`
+	Datum     json.RawMessage `json:"data"`
 }
 
 func main() {

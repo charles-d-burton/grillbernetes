@@ -163,11 +163,13 @@ func (hval *HsetValue) Update(group string) error {
 	if err != nil {
 		return err
 	}
-	err = rc.HSet(group, hval.Device, string(data)).Err()
+	set, err := rc.HSet(group, hval.Device, string(data)).Result()
 	if err != nil {
 		return err
 	}
-	log.Infof("Device %v added to HSET %v", hval.Device, group)
+	if set {
+		log.Infof("Device %v added to HSET %v", hval.Device, group)
+	}
 	return nil
 }
 

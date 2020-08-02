@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"io"
@@ -18,8 +19,6 @@ import (
 	nats "github.com/nats-io/nats.go"
 	stan "github.com/nats-io/stan.go"
 	"github.com/sirupsen/logrus"
-
-	jsoniter "github.com/json-iterator/go"
 )
 
 const (
@@ -35,8 +34,7 @@ Options:
 	-st, --subscribe-topic   <Topic>      Topic to listen for upate messages
 	-d,  --debug             <Nothing>    Debug flag, enables CORS
 `
-	log  = logrus.New()
-	json = jsoniter.ConfigCompatibleWithStandardLibrary
+	log = logrus.New()
 )
 
 func init() {
@@ -70,8 +68,8 @@ type Subscriber struct {
 
 //Message message object to send back to subsriber
 type Message struct {
-	Timestamp int64  `json:"timestamp"`
-	Datum     []byte `json:"datum"`
+	Timestamp int64           `json:"timestamp"`
+	Datum     json.RawMessage `json:"datum"`
 }
 
 func main() {

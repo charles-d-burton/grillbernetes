@@ -102,7 +102,7 @@ func GetDevices(c *gin.Context) {
 	devicesArr := make([]json.RawMessage, 0)
 	if err != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": err.Error()})
-		log.Fatal(err)
+		log.Info(err)
 		return
 	}
 	for _, value := range devices {

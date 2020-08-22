@@ -45,12 +45,13 @@ type DirectiveRoot struct {
 type ComplexityRoot struct {
 	Device struct {
 		ID    func(childComplexity int) int
+		Token func(childComplexity int) int
 		Topic func(childComplexity int) int
 		Type  func(childComplexity int) int
 	}
 
 	Mutation struct {
-		AddDevice     func(childComplexity int, input model.NewDevice) int
+		AddDevice     func(childComplexity int, input model.SendData) int
 		Login         func(childComplexity int, input model.Login) int
 		Register      func(childComplexity int, input model.NewUser) int
 		SignOut       func(childComplexity int, input model.Login) int
@@ -74,7 +75,7 @@ type MutationResolver interface {
 	Login(ctx context.Context, input model.Login) (*model.User, error)
 	SignOut(ctx context.Context, input model.Login) (bool, error)
 	UserAvailable(ctx context.Context, input model.Username) (bool, error)
-	AddDevice(ctx context.Context, input model.NewDevice) (bool, error)
+	AddDevice(ctx context.Context, input model.SendData) (bool, error)
 }
 type QueryResolver interface {
 	Devices(ctx context.Context) ([]*model.Device, error)
@@ -102,6 +103,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Device.ID(childComplexity), true
 
+	case "Device.token":
+		if e.complexity.Device.Token == nil {
+			break
+		}
+
+		return e.complexity.Device.Token(childComplexity), true
+
 	case "Device.topic":
 		if e.complexity.Device.Topic == nil {
 			break
@@ -126,7 +134,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.AddDevice(childComplexity, args["input"].(model.NewDevice)), true
+		return e.complexity.Mutation.AddDevice(childComplexity, args["input"].(model.SendData)), true
 
 	case "Mutation.login":
 		if e.complexity.Mutation.Login == nil {
@@ -284,6 +292,7 @@ var sources = []*ast.Source{
 
 type Device {
   id: String!
+  token: String!
   topic: String!
   type: String
 }
@@ -304,9 +313,9 @@ input NewUser {
   password: String!
 }
 
-input NewDevice {
+input SendData {
   id: String!
-  apiToken: String!
+  token: String!
   type: String
 }
 
@@ -319,7 +328,7 @@ type Mutation {
   login(input: Login!):User!
   signOut(input: Login!):Boolean!
   userAvailable(input: Username!):Boolean!
-  addDevice(input: NewDevice!):Boolean!
+  addDevice(input: SendData!):Boolean!
 }`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -331,9 +340,9 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 func (ec *executionContext) field_Mutation_addDevice_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 model.NewDevice
+	var arg0 model.SendData
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNNewDevice2githubᚗcomᚋcharlesᚑdᚑburtonᚋgrillbernetesᚋgatewayᚋgraphᚋmodelᚐNewDevice(ctx, tmp)
+		arg0, err = ec.unmarshalNSendData2githubᚗcomᚋcharlesᚑdᚑburtonᚋgrillbernetesᚋgatewayᚋgraphᚋmodelᚐSendData(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -466,6 +475,40 @@ func (ec *executionContext) _Device_id(ctx context.Context, field graphql.Collec
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.ID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Device_token(ctx context.Context, field graphql.CollectedField, obj *model.Device) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Device",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Token, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -735,7 +778,7 @@ func (ec *executionContext) _Mutation_addDevice(ctx context.Context, field graph
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().AddDevice(rctx, args["input"].(model.NewDevice))
+		return ec.resolvers.Mutation().AddDevice(rctx, args["input"].(model.SendData))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2076,36 +2119,6 @@ func (ec *executionContext) unmarshalInputLogin(ctx context.Context, obj interfa
 	return it, nil
 }
 
-func (ec *executionContext) unmarshalInputNewDevice(ctx context.Context, obj interface{}) (model.NewDevice, error) {
-	var it model.NewDevice
-	var asMap = obj.(map[string]interface{})
-
-	for k, v := range asMap {
-		switch k {
-		case "id":
-			var err error
-			it.ID, err = ec.unmarshalNString2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		case "apiToken":
-			var err error
-			it.APIToken, err = ec.unmarshalNString2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		case "type":
-			var err error
-			it.Type, err = ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		}
-	}
-
-	return it, nil
-}
-
 func (ec *executionContext) unmarshalInputNewUser(ctx context.Context, obj interface{}) (model.NewUser, error) {
 	var it model.NewUser
 	var asMap = obj.(map[string]interface{})
@@ -2121,6 +2134,36 @@ func (ec *executionContext) unmarshalInputNewUser(ctx context.Context, obj inter
 		case "password":
 			var err error
 			it.Password, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputSendData(ctx context.Context, obj interface{}) (model.SendData, error) {
+	var it model.SendData
+	var asMap = obj.(map[string]interface{})
+
+	for k, v := range asMap {
+		switch k {
+		case "id":
+			var err error
+			it.ID, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "token":
+			var err error
+			it.Token, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "type":
+			var err error
+			it.Type, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -2169,6 +2212,11 @@ func (ec *executionContext) _Device(ctx context.Context, sel ast.SelectionSet, o
 			out.Values[i] = graphql.MarshalString("Device")
 		case "id":
 			out.Values[i] = ec._Device_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "token":
+			out.Values[i] = ec._Device_token(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -2649,12 +2697,12 @@ func (ec *executionContext) unmarshalNLogin2githubᚗcomᚋcharlesᚑdᚑburton�
 	return ec.unmarshalInputLogin(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNNewDevice2githubᚗcomᚋcharlesᚑdᚑburtonᚋgrillbernetesᚋgatewayᚋgraphᚋmodelᚐNewDevice(ctx context.Context, v interface{}) (model.NewDevice, error) {
-	return ec.unmarshalInputNewDevice(ctx, v)
-}
-
 func (ec *executionContext) unmarshalNNewUser2githubᚗcomᚋcharlesᚑdᚑburtonᚋgrillbernetesᚋgatewayᚋgraphᚋmodelᚐNewUser(ctx context.Context, v interface{}) (model.NewUser, error) {
 	return ec.unmarshalInputNewUser(ctx, v)
+}
+
+func (ec *executionContext) unmarshalNSendData2githubᚗcomᚋcharlesᚑdᚑburtonᚋgrillbernetesᚋgatewayᚋgraphᚋmodelᚐSendData(ctx context.Context, v interface{}) (model.SendData, error) {
+	return ec.unmarshalInputSendData(ctx, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {

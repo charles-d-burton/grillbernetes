@@ -4,6 +4,7 @@ package model
 
 type Device struct {
 	ID    string  `json:"id"`
+	Token string  `json:"token"`
 	Topic string  `json:"topic"`
 	Type  *string `json:"type"`
 }
@@ -15,15 +16,15 @@ type Login struct {
 	RefreshToken *string `json:"refreshToken"`
 }
 
-type NewDevice struct {
-	ID       string  `json:"id"`
-	APIToken string  `json:"apiToken"`
-	Type     *string `json:"type"`
-}
-
 type NewUser struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type SendData struct {
+	ID    string  `json:"id"`
+	Token string  `json:"token"`
+	Type  *string `json:"type"`
 }
 
 type User struct {

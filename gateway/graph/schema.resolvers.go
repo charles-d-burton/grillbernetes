@@ -134,7 +134,7 @@ func (r *mutationResolver) UserAvailable(ctx context.Context, input model.Userna
 	return true, nil
 }
 
-func (r *mutationResolver) AddDevice(ctx context.Context, input model.NewDevice) (bool, error) {
+func (r *mutationResolver) AddDevice(ctx context.Context, input model.SendData) (bool, error) {
 	panic(fmt.Errorf("not implemented"))
 }
 

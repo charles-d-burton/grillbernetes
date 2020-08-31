@@ -34,7 +34,7 @@ var (
 	debug    bool
 )
 
-// CognitoFlow holds internals for auth flow.
+// CognitoFlow holds internals for auth flow.s
 type CognitoFlow struct {
 	CognitoClient *cognitoidentityprovider.CognitoIdentityProvider
 	RegFlow       *regFlow
@@ -176,7 +176,8 @@ func checkMethod(r *http.Request) bool {
 // OTP handles code verification step.
 func (c *CognitoFlow) OTP(w http.ResponseWriter, r *http.Request) {
 	type otpdata struct {
-		OTP string `json:"otp"`
+		OTP      string `json:"otp"`
+		Username string `json:"username"`
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -194,7 +195,7 @@ func (c *CognitoFlow) OTP(w http.ResponseWriter, r *http.Request) {
 
 	user := &cognitoidentityprovider.ConfirmSignUpInput{
 		ConfirmationCode: &otp.OTP,
-		Username:         aws.String(c.RegFlow.Username),
+		Username:         &otp.Username,
 		ClientId:         aws.String(c.AppClientID),
 	}
 

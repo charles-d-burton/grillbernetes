@@ -315,6 +315,9 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
+	if debug {
+		fmt.Println(string(body))
+	}
 	if err != nil {
 		log.Error(err)
 		http.Error(w, "", http.StatusInternalServerError)

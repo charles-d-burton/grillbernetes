@@ -378,7 +378,7 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println(string(data))
-	w.Header().Set("Content-Type", "application/json")
+	//w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(data)
 	if err != nil {
 		log.Error(err)

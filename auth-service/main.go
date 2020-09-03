@@ -307,7 +307,9 @@ func (c *CognitoFlow) Username(w http.ResponseWriter, r *http.Request) {
 
 // Login handles login scenario.
 func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
-
+	if debug {
+		log.Info("Starting Login Flow")
+	}
 	type userdata struct {
 		Username     string `json:"username"`
 		Password     string `json:"password,omitempty"`
@@ -315,19 +317,23 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
-	if debug {
-		fmt.Println(string(body))
-	}
 	if err != nil {
 		log.Error(err)
+		if debug {
+			fmt.Println(string(body))
+		}
 		http.Error(w, "", http.StatusInternalServerError)
 		return
+	}
+	if debug {
+		fmt.Println(string(body))
 	}
 	var user userdata
 	err = json.Unmarshal(body, &user)
 	if err != nil {
 		log.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	log.Info(user.Username)

@@ -59,6 +59,7 @@ func init() {
 		region = os.Getenv("REGION")
 	}
 	if os.Getenv("SERVER_MODE") == "DEBUG" {
+		log.Info("Turning on DEBUG Mode")
 		debug = true
 	}
 	poolKey = "https://cognito-idp." + region + ".amazonaws.com/" + poolId + "/.well-known/jwks.json"

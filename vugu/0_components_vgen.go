@@ -9,19 +9,28 @@ import "github.com/vugu/vugu"
 import js "github.com/vugu/vugu/js"
 
 import (
-	"github.com/json-iterator/go"
+	"bytes"
+	"encoding/json"
+
 	"github.com/peterhellberg/sseclient"
+	"github.com/vugu/vugu/vgform"
+	"io/ioutil"
+	"net/http"
 )
 
 const (
 	events		= "https://events.home.rsmachiner.com/stream/home/smoker-pi/readings"
 	controls	= "https://control-hub.home.rsmachiner.com/config/home/smoker-pi/configs"
+	auth		= "https://auth.home.rsmachiner.com/login"
+	aToken		= "accessToken"
+	rToken		= "refreshToken"
+	uname		= "username"
 )
 
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
-
 type Root struct {
-	Stream stream `vugu:"data"`
+	Stream		stream	`vugu:"data"`
+	LoginBoxValue	string
+	PasswordValue	string
 }
 
 type stream struct {
@@ -62,6 +71,74 @@ func (r *Root) HandleStreamInit(event vugu.DOMEvent) {
 		}
 	}()
 }
+
+func (r *Root) LoginButtonEvent(e vugu.DOMEvent) {
+	type User struct {
+		AccessToken	*string
+		RefreshToken	*string
+		ID		string
+	}
+
+	if r.LoginBoxValue == "" || r.PasswordValue == "" {
+		fmt.Println("Login and Password not set")
+		return
+	}
+	go func() {
+
+		/*if input.RefreshToken != nil {
+			values["refresh_token"] = *input.RefreshToken
+		}*/
+		type loginStruct struct {
+			Username	string	`json:"username"`
+			Password	string	`json:"password"`
+		}
+		//fmt.Println("Pushed login button")
+		//fmt.Printf("Got Login: %v\n", r.LoginBoxValue)
+		//fmt.Printf("Got Password: %v\n", r.PasswordValue)
+		var login loginStruct
+		login.Username = r.LoginBoxValue
+		login.Password = r.PasswordValue
+		data, err := json.Marshal(&login)
+		if err != nil {
+			fmt.Println(err)
+		}
+		req, _ := http.NewRequest("POST", auth, bytes.NewBuffer(data))
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("response error")
+			fmt.Println(err)
+			return
+		}
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		//fmt.Print("BODY:")
+		//fmt.Println(string(body))
+		var ident AuthManager
+		err = json.Unmarshal(body, &ident)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(ident.AuthenticationResult.ExpiresIn)
+		setLocal(aToken, ident.AuthenticationResult.AccessToken)
+		setLocal(rToken, ident.AuthenticationResult.RefreshToken)
+		setLocal(uname, r.LoginBoxValue)
+		ident.SetExpire(ident.AuthenticationResult.ExpiresIn)
+		fmt.Println(getLocalString(aToken))
+		ident.Start()
+	}()
+}
+
+func (r *Root) SignupButtonEvent(e vugu.DOMEvent) {
+
+}
+
+func (r *Root) LostPasswordButtonEvent(e vugu.DOMEvent) {
+
+}
 func (c *Root) Build(vgin *vugu.BuildIn) (vgout *vugu.BuildOut) {
 
 	vgout = &vugu.BuildOut{}
@@ -69,85 +146,189 @@ func (c *Root) Build(vgin *vugu.BuildIn) (vgout *vugu.BuildOut) {
 	var vgiterkey interface{}
 	_ = vgiterkey
 	var vgn *vugu.VGNode
-	vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "div", Attr: []vugu.VGAttribute(nil)}
+	vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "html", Attr: []vugu.VGAttribute(nil)}
 	vgout.Out = append(vgout.Out, vgn)	// root for output
 	{
 		vgparent := vgn
 		_ = vgparent
-		vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    "}
-		vgparent.AppendChild(vgn)
-		vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "main", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "role", Val: "main"}, vugu.VGAttribute{Namespace: "", Key: "class", Val: "login"}}}
+		vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "head", Attr: []vugu.VGAttribute(nil)}
 		vgparent.AppendChild(vgn)
 		{
 			vgparent := vgn
 			_ = vgparent
+			vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "link", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "rel", Val: "stylesheet"}, vugu.VGAttribute{Namespace: "", Key: "href", Val: "https://code.getmdl.io/1.3.0/material.indigo-pink.min.css"}}}
+			vgout.AppendCSS(vgn)
 			vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t"}
 			vgparent.AppendChild(vgn)
-			vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "h1", Attr: []vugu.VGAttribute(nil)}
-			vgparent.AppendChild(vgn)
-			{
-				vgparent := vgn
-				_ = vgparent
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "Login"}
-				vgparent.AppendChild(vgn)
-			}
-			vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    "}
-			vgparent.AppendChild(vgn)
-			vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "form", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "method", Val: "post"}}}
-			vgparent.AppendChild(vgn)
-			{
-				vgparent := vgn
-				_ = vgparent
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    \t"}
-				vgparent.AppendChild(vgn)
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "input", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "type", Val: "text"}, vugu.VGAttribute{Namespace: "", Key: "name", Val: "u"}, vugu.VGAttribute{Namespace: "", Key: "placeholder", Val: "Username"}, vugu.VGAttribute{Namespace: "", Key: "required", Val: "required"}}}
-				vgparent.AppendChild(vgn)
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n        "}
-				vgparent.AppendChild(vgn)
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "input", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "type", Val: "password"}, vugu.VGAttribute{Namespace: "", Key: "name", Val: "p"}, vugu.VGAttribute{Namespace: "", Key: "placeholder", Val: "Password"}, vugu.VGAttribute{Namespace: "", Key: "required", Val: "required"}}}
-				vgparent.AppendChild(vgn)
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n        "}
-				vgparent.AppendChild(vgn)
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "button", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "type", Val: "submit"}, vugu.VGAttribute{Namespace: "", Key: "class", Val: "btn btn-primary btn-block btn-large"}}}
-				vgparent.AppendChild(vgn)
-				{
-					vgparent := vgn
-					_ = vgparent
-					vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "Login"}
-					vgparent.AppendChild(vgn)
-				}
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t"}
-				vgparent.AppendChild(vgn)
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "button", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "type", Val: "signup"}, vugu.VGAttribute{Namespace: "", Key: "class", Val: "btn btn-primary"}}}
-				vgparent.AppendChild(vgn)
-				{
-					vgparent := vgn
-					_ = vgparent
-					vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "Signup"}
-					vgparent.AppendChild(vgn)
-				}
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t"}
-				vgparent.AppendChild(vgn)
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "button", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "type", Val: "forgot"}, vugu.VGAttribute{Namespace: "", Key: "class", Val: "btn btn-primary"}}}
-				vgparent.AppendChild(vgn)
-				{
-					vgparent := vgn
-					_ = vgparent
-					vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "Forgot Password?"}
-					vgparent.AppendChild(vgn)
-				}
-				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    "}
-				vgparent.AppendChild(vgn)
-			}
-			vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n    "}
+			vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "link", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "rel", Val: "stylesheet"}, vugu.VGAttribute{Namespace: "", Key: "href", Val: "https://fonts.googleapis.com/icon?family=Material+Icons"}}}
+			vgout.AppendCSS(vgn)
+			vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\n"}
 			vgparent.AppendChild(vgn)
 		}
+		vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "body", Attr: []vugu.VGAttribute(nil)}
+		vgparent.AppendChild(vgn)
+		{
+			vgparent := vgn
+			_ = vgparent
+			vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "div", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-grid"}}}
+			vgparent.AppendChild(vgn)
+			{
+				vgparent := vgn
+				_ = vgparent
+				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t"}
+				vgparent.AppendChild(vgn)
+				vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "div", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-card mdl-shadow--6dp"}}}
+				vgparent.AppendChild(vgn)
+				{
+					vgparent := vgn
+					_ = vgparent
+					vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t"}
+					vgparent.AppendChild(vgn)
+					vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "div", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-card__title mdl-color--primary mdl-color-text--white relative"}}}
+					vgparent.AppendChild(vgn)
+					vgn.SetInnerHTML(vugu.HTML("\n\t\t\t\x3Ch2 class=\"mdl-card__title-text\"\x3EK8S Kitchen Login\x3C/h2\x3E\n\t\t"))
+					vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\n\t\t"}
+					vgparent.AppendChild(vgn)
+					vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "div", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-card__supporting-text"}}}
+					vgparent.AppendChild(vgn)
+					{
+						vgparent := vgn
+						_ = vgparent
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t"}
+						vgparent.AppendChild(vgn)
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "div", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-textfield mdl-js-textfield mdl-textfield--floating-label"}}}
+						vgparent.AppendChild(vgn)
+						{
+							vgparent := vgn
+							_ = vgparent
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t\t"}
+							vgparent.AppendChild(vgn)
+							{
+								vgcompKey := vugu.MakeCompKey(0x2EE7D65B9CDEAFAF^vgin.CurrentPositionHash(), vgiterkey)
+								// ask BuildEnv for prior instance of this specific component
+								vgcomp, _ := vgin.BuildEnv.CachedComponent(vgcompKey).(*vgform.Input)
+								if vgcomp == nil {
+									// create new one if needed
+									vgcomp = new(vgform.Input)
+									vgin.BuildEnv.WireComponent(vgcomp)
+								}
+								vgin.BuildEnv.UseComponent(vgcompKey, vgcomp)	// ensure we can use this in the cache next time around
+								vgcomp.Value = vgform.StringPtr{&c.LoginBoxValue}
+								vgcomp.AttrMap = make(map[string]interface{}, 8)
+								vgcomp.AttrMap["type"] = "email"
+								vgcomp.AttrMap["required"] = "required"
+								vgcomp.AttrMap["class"] = "mdl-textfield__input"
+								vgcomp.AttrMap["id"] = "login"
+								vgcomp.AttrMap["placeholder"] = "Login"
+								vgout.Components = append(vgout.Components, vgcomp)
+								vgn = &vugu.VGNode{Component: vgcomp}
+								vgparent.AppendChild(vgn)
+							}
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t\t"}
+							vgparent.AppendChild(vgn)
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "label", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-textfield__label"}, vugu.VGAttribute{Namespace: "", Key: "for", Val: "login"}}}
+							vgparent.AppendChild(vgn)
+							vgn.SetInnerHTML(vugu.HTML(""))
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t"}
+							vgparent.AppendChild(vgn)
+						}
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t"}
+						vgparent.AppendChild(vgn)
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "div", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-textfield mdl-js-textfield mdl-textfield--floating-label"}}}
+						vgparent.AppendChild(vgn)
+						{
+							vgparent := vgn
+							_ = vgparent
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t\t"}
+							vgparent.AppendChild(vgn)
+							{
+								vgcompKey := vugu.MakeCompKey(0xB0C7A97EB30A2991^vgin.CurrentPositionHash(), vgiterkey)
+								// ask BuildEnv for prior instance of this specific component
+								vgcomp, _ := vgin.BuildEnv.CachedComponent(vgcompKey).(*vgform.Input)
+								if vgcomp == nil {
+									// create new one if needed
+									vgcomp = new(vgform.Input)
+									vgin.BuildEnv.WireComponent(vgcomp)
+								}
+								vgin.BuildEnv.UseComponent(vgcompKey, vgcomp)	// ensure we can use this in the cache next time around
+								vgcomp.Value = vgform.StringPtr{&c.PasswordValue}
+								vgcomp.AttrMap = make(map[string]interface{}, 8)
+								vgcomp.AttrMap["type"] = "password"
+								vgcomp.AttrMap["class"] = "mdl-textfield__input"
+								vgcomp.AttrMap["placeholder"] = "Password"
+								vgcomp.AttrMap["required"] = "required"
+								vgout.Components = append(vgout.Components, vgcomp)
+								vgn = &vugu.VGNode{Component: vgcomp}
+								vgparent.AppendChild(vgn)
+							}
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t\t"}
+							vgparent.AppendChild(vgn)
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "label", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-textfield__label"}, vugu.VGAttribute{Namespace: "", Key: "for", Val: "password"}}}
+							vgparent.AppendChild(vgn)
+							vgn.SetInnerHTML(vugu.HTML(""))
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t"}
+							vgparent.AppendChild(vgn)
+						}
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t"}
+						vgparent.AppendChild(vgn)
+					}
+					vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\n\t\t"}
+					vgparent.AppendChild(vgn)
+					vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "div", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-card__actions mdl-card--border"}}}
+					vgparent.AppendChild(vgn)
+					{
+						vgparent := vgn
+						_ = vgparent
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t"}
+						vgparent.AppendChild(vgn)
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "div", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-grid"}}}
+						vgparent.AppendChild(vgn)
+						{
+							vgparent := vgn
+							_ = vgparent
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t\t"}
+							vgparent.AppendChild(vgn)
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "button", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-cell mdl-cell--12-col mdl-button mdl-button--raised mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-color-text--white"}}}
+							vgparent.AppendChild(vgn)
+							vgn.DOMEventHandlerSpecList = append(vgn.DOMEventHandlerSpecList, vugu.DOMEventHandlerSpec{
+								EventType:	"click",
+								Func:		func(event vugu.DOMEvent) { c.LoginButtonEvent(event) },
+								// TODO: implement capture, etc. mostly need to decide syntax
+							})
+							{
+								vgparent := vgn
+								_ = vgparent
+								vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t\t\t\tLogin\n\t\t\t\t"}
+								vgparent.AppendChild(vgn)
+							}
+							vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\n\t\t\t"}
+							vgparent.AppendChild(vgn)
+						}
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\n\t\t\t"}
+						vgparent.AppendChild(vgn)
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Namespace: "", Data: "div", Attr: []vugu.VGAttribute{vugu.VGAttribute{Namespace: "", Key: "class", Val: "mdl-grid"}}}
+						vgparent.AppendChild(vgn)
+						vgn.SetInnerHTML(vugu.HTML("\n\t\t\t\t\x3Cdiv class=\"mdl-cell mdl-cell--12-col\"\x3E\n\t\t\t\t\t\x3Ca onclick=\"flip(\x26#34;show-left\x26#34;)\" class=\"mdl-color-text--primary\"\x3ESign up!\x3C/a\x3E\n\t\t\t\t\t\x3Ca onclick=\"flip(\x26#34;show-bottom\x26#34;)\" class=\"mdl-color-text--primary\" style=\"float: right\"\x3ELost\n\t\t\t\t\t\tPassword?\x3C/a\x3E\n\t\t\t\t\x3C/div\x3E\n\t\t\t"))
+						vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t\t"}
+						vgparent.AppendChild(vgn)
+					}
+					vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t"}
+					vgparent.AppendChild(vgn)
+				}
+				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n\t"}
+				vgparent.AppendChild(vgn)
+				vgn = &vugu.VGNode{Type: vugu.VGNodeType(4), Data: "<div class=\"mdl-card mdl-shadow--6dp\">\n\t\t<div class=\"mdl-card__title mdl-color--primary mdl-color-text--white relative\">\n\t\t\t<a class=\"mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--icon\"\n\t\t\t\tonClick='flip(\"show-front\")'>\n\t\t\t\t<i class=\"material-icons\">arrow_back</i>\n\t\t\t</a>\n\t\t\t<h2 class=\"mdl-card__title-text\">Sign up</h2>\n\t\t</div>\n\n\n\t\t<div class=\"mdl-card__supporting-text\">\n\t\t\t<div class=\"mdl-textfield mdl-js-textfield mdl-textfield--floating-label\">\n\t\t\t\t<input class=\"mdl-textfield__input\" id=\"login\"/>\n\t\t\t\t<label class=\"mdl-textfield__label\" for=\"login\">Login</label>\n\t\t\t</div>\n\t\t\t<div class=\"mdl-textfield mdl-js-textfield mdl-textfield--floating-label\">\n\t\t\t\t<input class=\"mdl-textfield__input\" type=\"password\" id=\"password\"/>\n\t\t\t\t<label class=\"mdl-textfield__label\" for=\"password\">Password</label>\n\t\t\t</div>\n\n\t\t\t<div class=\"mdl-textfield mdl-js-textfield mdl-textfield--floating-label\">\n\t\t\t\t<input class=\"mdl-textfield__input\" type=\"password\" id=\"password2\"/>\n\t\t\t\t<label class=\"mdl-textfield__label\" for=\"password2\">Password repeat</label>\n\t\t\t</div>\n\t\t</div>\n\n\t\t<div class=\"mdl-card__actions mdl-card--border\">\n\t\t\t<div class=\"mdl-grid\">\n\t\t\t\t<button class=\"mdl-cell mdl-cell--12-col mdl-button mdl-button--raised mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-color-text--white\">\n\t\t\t\t\tSign up\n\t\t\t\t</button>\n\t\t\t</div>\n\t\t</div>\n\t</div>\n\t<div class=\"mdl-card mdl-shadow--6dp\">\n\t\t<div class=\"mdl-card__title mdl-color--primary mdl-color-text--white relative\">\n\t\t\t<a class=\"mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--icon\"\n\t\t\t\tonClick='flip(\"show-front\")'>\n\t\t\t\t<i class=\"material-icons\">arrow_back</i>\n\t\t\t</a>\n\t\t\t<h2 class=\"mdl-card__title-text\">Lost Password</h2>\n\t\t</div>\n\n\n\t\t<div class=\"mdl-card__supporting-text\">\n\t\t\t<div class=\"mdl-textfield mdl-js-textfield mdl-textfield--floating-label\">\n\t\t\t\t<input class=\"mdl-textfield__input\" type=\"email\" id=\"email\"/>\n\t\t\t\t<label class=\"mdl-textfield__label\" for=\"email\">E-Mail</label>\n\t\t\t</div>\n\t\t</div>\n\n\t\t<div class=\"mdl-card__actions mdl-card--border\">\n\t\t\t<div class=\"mdl-grid\">\n\t\t\t\t<button class=\"mdl-cell mdl-cell--12-col mdl-button mdl-button--raised mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-color-text--white\">\n\t\t\t\t\tReset Password\n\t\t\t\t</button>\n\t\t\t</div>\n\t\t</div>\n\t</div>"}
+				vgparent.AppendChild(vgn)
+				vgn = &vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n"}
+				vgparent.AppendChild(vgn)
+			}
+			vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "style", Attr: []vugu.VGAttribute(nil)}
+			{
+				vgn.AppendChild(&vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\nbody {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n", Attr: []vugu.VGAttribute(nil)})
+			}
+			vgout.AppendCSS(vgn)
+		}
 	}
-	vgn = &vugu.VGNode{Type: vugu.VGNodeType(3), Data: "style", Attr: []vugu.VGAttribute(nil)}
-	{
-		vgn.AppendChild(&vugu.VGNode{Type: vugu.VGNodeType(1), Data: "\n@import url(https://fonts.googleapis.com/css?family=Open+Sans);\n.btn { display: inline-block; *display: inline; *zoom: 1; padding: 4px 10px 4px; margin-bottom: 0; font-size: 13px; line-height: 18px; color: #333333; text-align: center;text-shadow: 0 1px 1px rgba(255, 255, 255, 0.75); vertical-align: middle; background-color: #f5f5f5; background-image: -moz-linear-gradient(top, #ffffff, #e6e6e6); background-image: -ms-linear-gradient(top, #ffffff, #e6e6e6); background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#ffffff), to(#e6e6e6)); background-image: -webkit-linear-gradient(top, #ffffff, #e6e6e6); background-image: -o-linear-gradient(top, #ffffff, #e6e6e6); background-image: linear-gradient(top, #ffffff, #e6e6e6); background-repeat: repeat-x; filter: progid:dximagetransform.microsoft.gradient(startColorstr=#ffffff, endColorstr=#e6e6e6, GradientType=0); border-color: #e6e6e6 #e6e6e6 #e6e6e6; border-color: rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.25); border: 1px solid #e6e6e6; -webkit-border-radius: 4px; -moz-border-radius: 4px; border-radius: 4px; -webkit-box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.05); -moz-box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.05); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.05); cursor: pointer; *margin-left: .3em; }\n.btn:hover, .btn:active, .btn.active, .btn.disabled, .btn[disabled] { background-color: #e6e6e6; }\n.btn-large { padding: 9px 14px; font-size: 15px; line-height: normal; -webkit-border-radius: 5px; -moz-border-radius: 5px; border-radius: 5px; }\n.btn:hover { color: #333333; text-decoration: none; background-color: #e6e6e6; background-position: 0 -15px; -webkit-transition: background-position 0.1s linear; -moz-transition: background-position 0.1s linear; -ms-transition: background-position 0.1s linear; -o-transition: background-position 0.1s linear; transition: background-position 0.1s linear; }\n.btn-primary, .btn-primary:hover { text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25); color: #ffffff; }\n.btn-primary.active { color: rgba(255, 255, 255, 0.75); }\n.btn-primary { background-color: #4a77d4; background-image: -moz-linear-gradient(top, #6eb6de, #4a77d4); background-image: -ms-linear-gradient(top, #6eb6de, #4a77d4); background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#6eb6de), to(#4a77d4)); background-image: -webkit-linear-gradient(top, #6eb6de, #4a77d4); background-image: -o-linear-gradient(top, #6eb6de, #4a77d4); background-image: linear-gradient(top, #6eb6de, #4a77d4); background-repeat: repeat-x; filter: progid:dximagetransform.microsoft.gradient(startColorstr=#6eb6de, endColorstr=#4a77d4, GradientType=0);  border: 1px solid #3762bc; text-shadow: 1px 1px 1px rgba(0,0,0,0.4); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.5); }\n.btn-primary:hover, .btn-primary:active, .btn-primary.active, .btn-primary.disabled, .btn-primary[disabled] { filter: none; background-color: #4a77d4; }\n.btn-block { width: 100%; display:block; }\n\n* { -webkit-box-sizing:border-box; -moz-box-sizing:border-box; -ms-box-sizing:border-box; -o-box-sizing:border-box; box-sizing:border-box; }\n\nhtml { width: 100%; height:100%; overflow:hidden; }\n\nbody { \n\twidth: 100%;\n\theight:100%;\n\tfont-family: 'Open Sans', sans-serif;\n\tbackground: #092756;\n\tbackground: -moz-radial-gradient(0% 100%, ellipse cover, rgba(104,128,138,.4) 10%,rgba(138,114,76,0) 40%),-moz-linear-gradient(top,  rgba(57,173,219,.25) 0%, rgba(42,60,87,.4) 100%), -moz-linear-gradient(-45deg,  #670d10 0%, #092756 100%);\n\tbackground: -webkit-radial-gradient(0% 100%, ellipse cover, rgba(104,128,138,.4) 10%,rgba(138,114,76,0) 40%), -webkit-linear-gradient(top,  rgba(57,173,219,.25) 0%,rgba(42,60,87,.4) 100%), -webkit-linear-gradient(-45deg,  #670d10 0%,#092756 100%);\n\tbackground: -o-radial-gradient(0% 100%, ellipse cover, rgba(104,128,138,.4) 10%,rgba(138,114,76,0) 40%), -o-linear-gradient(top,  rgba(57,173,219,.25) 0%,rgba(42,60,87,.4) 100%), -o-linear-gradient(-45deg,  #670d10 0%,#092756 100%);\n\tbackground: -ms-radial-gradient(0% 100%, ellipse cover, rgba(104,128,138,.4) 10%,rgba(138,114,76,0) 40%), -ms-linear-gradient(top,  rgba(57,173,219,.25) 0%,rgba(42,60,87,.4) 100%), -ms-linear-gradient(-45deg,  #670d10 0%,#092756 100%);\n\tbackground: -webkit-radial-gradient(0% 100%, ellipse cover, rgba(104,128,138,.4) 10%,rgba(138,114,76,0) 40%), linear-gradient(to bottom,  rgba(57,173,219,.25) 0%,rgba(42,60,87,.4) 100%), linear-gradient(135deg,  #670d10 0%,#092756 100%);\n\tfilter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#3E1D6D', endColorstr='#092756',GradientType=1 );\n}\n.login { \n\tposition: absolute;\n\ttop: 50%;\n\tleft: 50%;\n\tmargin: -150px 0 0 -150px;\n\twidth:300px;\n\theight:300px;\n}\n.login h1 { color: #fff; text-shadow: 0 0 10px rgba(0,0,0,0.3); letter-spacing:1px; text-align:center; }\n\ninput { \n\twidth: 100%; \n\tmargin-bottom: 10px; \n\tbackground: rgba(0,0,0,0.3);\n\tborder: none;\n\toutline: none;\n\tpadding: 10px;\n\tfont-size: 13px;\n\tcolor: #fff;\n\ttext-shadow: 1px 1px 1px rgba(0,0,0,0.3);\n\tborder: 1px solid rgba(0,0,0,0.3);\n\tborder-radius: 4px;\n\tbox-shadow: inset 0 -5px 45px rgba(100,100,100,0.2), 0 1px 1px rgba(255,255,255,0.2);\n\t-webkit-transition: box-shadow .5s ease;\n\t-moz-transition: box-shadow .5s ease;\n\t-o-transition: box-shadow .5s ease;\n\t-ms-transition: box-shadow .5s ease;\n\ttransition: box-shadow .5s ease;\n}\ninput:focus { box-shadow: inset 0 -5px 45px rgba(100,100,100,0.4), 0 1px 1px rgba(255,255,255,0.2); }\n", Attr: []vugu.VGAttribute(nil)})
-	}
-	vgout.AppendCSS(vgn)
 	return vgout
 }
 

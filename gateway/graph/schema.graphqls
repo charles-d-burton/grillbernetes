@@ -6,10 +6,9 @@ type User {
 }
 
 type Device {
-  id: String!
-  token: String!
-  topic: String!
-  type: String
+  device: String!
+  time_seconds: Int!
+  channel: String!
 }
 
 input Username {

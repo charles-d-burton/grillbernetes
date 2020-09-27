@@ -1,93 +1,139 @@
-<div>
-    <main role="main" class="login">
-	<h1>Login</h1>
-    <form method="post">
-    	<input type="text" name="u" placeholder="Username" required="required" />
-        <input type="password" name="p" placeholder="Password" required="required" />
-        <button type="submit" class="btn btn-primary btn-block btn-large">Login</button>
-		<button type="signup" class="btn btn-primary">Signup</button>
-		<button type="forgot" class="btn btn-primary">Forgot Password?</button>
-    </form>
-    </div>
-    </main>
+<html>
+	<link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+	
+<div class="mdl-grid">
+	<div class="mdl-card mdl-shadow--6dp">
+		<div class="mdl-card__title mdl-color--primary mdl-color-text--white relative">
+			<h2 class="mdl-card__title-text">K8S Kitchen Login</h2>
+		</div>
+
+		<div class="mdl-card__supporting-text">
+			<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+				<vgform:Input type="email" :Value='vgform.StringPtr{&c.LoginBoxValue}' required="required" class="mdl-textfield__input" id="login" placeholder="Login"></vgform:Input>
+				<label class="mdl-textfield__label" for="login" ></label>
+			</div>
+			<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+				<vgform:Input type="password" :Value='vgform.StringPtr{&c.PasswordValue}'  class="mdl-textfield__input" placeholder="Password" required="required" ></vgform:Input>
+				<label class="mdl-textfield__label" for="password"></label>
+			</div>
+		</div>
+
+		<div class="mdl-card__actions mdl-card--border">
+			<div class="mdl-grid">
+				<button @click='c.LoginButtonEvent(event)' class="mdl-cell mdl-cell--12-col mdl-button mdl-button--raised mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-color-text--white">
+					Login
+				</button>
+
+			</div>
+
+			<div class="mdl-grid">
+				<div class="mdl-cell mdl-cell--12-col">
+					<a onClick='flip("show-left")' class="mdl-color-text--primary">Sign up!</a>
+					<a onClick='flip("show-bottom")' class="mdl-color-text--primary" style="float: right">Lost
+						Password?</a>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+	<div class="mdl-card mdl-shadow--6dp">
+		<div class="mdl-card__title mdl-color--primary mdl-color-text--white relative">
+			<a class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--icon"
+				onClick='flip("show-front")'>
+				<i class="material-icons">arrow_back</i>
+			</a>
+			<h2 class="mdl-card__title-text">Sign up</h2>
+		</div>
+
+
+		<div class="mdl-card__supporting-text">
+			<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+				<input class="mdl-textfield__input" id="login"/>
+				<label class="mdl-textfield__label" for="login">Login</label>
+			</div>
+			<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+				<input class="mdl-textfield__input" type="password" id="password"/>
+				<label class="mdl-textfield__label" for="password">Password</label>
+			</div>
+
+			<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+				<input class="mdl-textfield__input" type="password" id="password2"/>
+				<label class="mdl-textfield__label" for="password2">Password repeat</label>
+			</div>
+		</div>
+
+		<div class="mdl-card__actions mdl-card--border">
+			<div class="mdl-grid">
+				<button class="mdl-cell mdl-cell--12-col mdl-button mdl-button--raised mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-color-text--white">
+					Sign up
+				</button>
+			</div>
+		</div>
+	</div>
+
+	
+	<div class="mdl-card mdl-shadow--6dp">
+		<div class="mdl-card__title mdl-color--primary mdl-color-text--white relative">
+			<a class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--icon"
+				onClick='flip("show-front")'>
+				<i class="material-icons">arrow_back</i>
+			</a>
+			<h2 class="mdl-card__title-text">Lost Password</h2>
+		</div>
+
+
+		<div class="mdl-card__supporting-text">
+			<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+				<input class="mdl-textfield__input" type="email" id="email"/>
+				<label class="mdl-textfield__label" for="email">E-Mail</label>
+			</div>
+		</div>
+
+		<div class="mdl-card__actions mdl-card--border">
+			<div class="mdl-grid">
+				<button class="mdl-cell mdl-cell--12-col mdl-button mdl-button--raised mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-color-text--white">
+					Reset Password
+				</button>
+			</div>
+		</div>
+	</div>
 </div>
+</html>
 <style>
-@import url(https://fonts.googleapis.com/css?family=Open+Sans);
-.btn { display: inline-block; *display: inline; *zoom: 1; padding: 4px 10px 4px; margin-bottom: 0; font-size: 13px; line-height: 18px; color: #333333; text-align: center;text-shadow: 0 1px 1px rgba(255, 255, 255, 0.75); vertical-align: middle; background-color: #f5f5f5; background-image: -moz-linear-gradient(top, #ffffff, #e6e6e6); background-image: -ms-linear-gradient(top, #ffffff, #e6e6e6); background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#ffffff), to(#e6e6e6)); background-image: -webkit-linear-gradient(top, #ffffff, #e6e6e6); background-image: -o-linear-gradient(top, #ffffff, #e6e6e6); background-image: linear-gradient(top, #ffffff, #e6e6e6); background-repeat: repeat-x; filter: progid:dximagetransform.microsoft.gradient(startColorstr=#ffffff, endColorstr=#e6e6e6, GradientType=0); border-color: #e6e6e6 #e6e6e6 #e6e6e6; border-color: rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.25); border: 1px solid #e6e6e6; -webkit-border-radius: 4px; -moz-border-radius: 4px; border-radius: 4px; -webkit-box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.05); -moz-box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.05); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.05); cursor: pointer; *margin-left: .3em; }
-.btn:hover, .btn:active, .btn.active, .btn.disabled, .btn[disabled] { background-color: #e6e6e6; }
-.btn-large { padding: 9px 14px; font-size: 15px; line-height: normal; -webkit-border-radius: 5px; -moz-border-radius: 5px; border-radius: 5px; }
-.btn:hover { color: #333333; text-decoration: none; background-color: #e6e6e6; background-position: 0 -15px; -webkit-transition: background-position 0.1s linear; -moz-transition: background-position 0.1s linear; -ms-transition: background-position 0.1s linear; -o-transition: background-position 0.1s linear; transition: background-position 0.1s linear; }
-.btn-primary, .btn-primary:hover { text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25); color: #ffffff; }
-.btn-primary.active { color: rgba(255, 255, 255, 0.75); }
-.btn-primary { background-color: #4a77d4; background-image: -moz-linear-gradient(top, #6eb6de, #4a77d4); background-image: -ms-linear-gradient(top, #6eb6de, #4a77d4); background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#6eb6de), to(#4a77d4)); background-image: -webkit-linear-gradient(top, #6eb6de, #4a77d4); background-image: -o-linear-gradient(top, #6eb6de, #4a77d4); background-image: linear-gradient(top, #6eb6de, #4a77d4); background-repeat: repeat-x; filter: progid:dximagetransform.microsoft.gradient(startColorstr=#6eb6de, endColorstr=#4a77d4, GradientType=0);  border: 1px solid #3762bc; text-shadow: 1px 1px 1px rgba(0,0,0,0.4); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.5); }
-.btn-primary:hover, .btn-primary:active, .btn-primary.active, .btn-primary.disabled, .btn-primary[disabled] { filter: none; background-color: #4a77d4; }
-.btn-block { width: 100%; display:block; }
-
-* { -webkit-box-sizing:border-box; -moz-box-sizing:border-box; -ms-box-sizing:border-box; -o-box-sizing:border-box; box-sizing:border-box; }
-
-html { width: 100%; height:100%; overflow:hidden; }
-
-body { 
-	width: 100%;
-	height:100%;
-	font-family: 'Open Sans', sans-serif;
-	background: #092756;
-	background: -moz-radial-gradient(0% 100%, ellipse cover, rgba(104,128,138,.4) 10%,rgba(138,114,76,0) 40%),-moz-linear-gradient(top,  rgba(57,173,219,.25) 0%, rgba(42,60,87,.4) 100%), -moz-linear-gradient(-45deg,  #670d10 0%, #092756 100%);
-	background: -webkit-radial-gradient(0% 100%, ellipse cover, rgba(104,128,138,.4) 10%,rgba(138,114,76,0) 40%), -webkit-linear-gradient(top,  rgba(57,173,219,.25) 0%,rgba(42,60,87,.4) 100%), -webkit-linear-gradient(-45deg,  #670d10 0%,#092756 100%);
-	background: -o-radial-gradient(0% 100%, ellipse cover, rgba(104,128,138,.4) 10%,rgba(138,114,76,0) 40%), -o-linear-gradient(top,  rgba(57,173,219,.25) 0%,rgba(42,60,87,.4) 100%), -o-linear-gradient(-45deg,  #670d10 0%,#092756 100%);
-	background: -ms-radial-gradient(0% 100%, ellipse cover, rgba(104,128,138,.4) 10%,rgba(138,114,76,0) 40%), -ms-linear-gradient(top,  rgba(57,173,219,.25) 0%,rgba(42,60,87,.4) 100%), -ms-linear-gradient(-45deg,  #670d10 0%,#092756 100%);
-	background: -webkit-radial-gradient(0% 100%, ellipse cover, rgba(104,128,138,.4) 10%,rgba(138,114,76,0) 40%), linear-gradient(to bottom,  rgba(57,173,219,.25) 0%,rgba(42,60,87,.4) 100%), linear-gradient(135deg,  #670d10 0%,#092756 100%);
-	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#3E1D6D', endColorstr='#092756',GradientType=1 );
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.login { 
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	margin: -150px 0 0 -150px;
-	width:300px;
-	height:300px;
-}
-.login h1 { color: #fff; text-shadow: 0 0 10px rgba(0,0,0,0.3); letter-spacing:1px; text-align:center; }
-
-input { 
-	width: 100%; 
-	margin-bottom: 10px; 
-	background: rgba(0,0,0,0.3);
-	border: none;
-	outline: none;
-	padding: 10px;
-	font-size: 13px;
-	color: #fff;
-	text-shadow: 1px 1px 1px rgba(0,0,0,0.3);
-	border: 1px solid rgba(0,0,0,0.3);
-	border-radius: 4px;
-	box-shadow: inset 0 -5px 45px rgba(100,100,100,0.2), 0 1px 1px rgba(255,255,255,0.2);
-	-webkit-transition: box-shadow .5s ease;
-	-moz-transition: box-shadow .5s ease;
-	-o-transition: box-shadow .5s ease;
-	-ms-transition: box-shadow .5s ease;
-	transition: box-shadow .5s ease;
-}
-input:focus { box-shadow: inset 0 -5px 45px rgba(100,100,100,0.4), 0 1px 1px rgba(255,255,255,0.2); }
 </style>
 
 <script type="application/x-go">
 
 import (
     "fmt"
+	"encoding/json"
+	"bytes"
+	"net/http"
+	"io/ioutil"
     "github.com/peterhellberg/sseclient"
-    "github.com/json-iterator/go"
+	"github.com/vugu/vugu/vgform"
 )
 
 const (
     events = "https://events.home.rsmachiner.com/stream/home/smoker-pi/readings"
     controls = "https://control-hub.home.rsmachiner.com/config/home/smoker-pi/configs"
+	auth =  "https://auth.home.rsmachiner.com/login"
+	aToken = "accessToken"
+	rToken = "refreshToken"
+	uname = "username"
 )
-
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type Root struct {
     Stream stream `vugu:"data"`
+	LoginBoxValue string
+	PasswordValue string
 }
 
 type stream struct {
@@ -127,5 +173,74 @@ func (r *Root) HandleStreamInit(event vugu.DOMEvent) {
             ee.UnlockRender()
         }
     }()
+}
+
+func (r *Root) LoginButtonEvent(e vugu.DOMEvent) {
+	type User struct {
+		AccessToken *string
+		RefreshToken *string
+		ID string
+    }
+
+	if r.LoginBoxValue == "" || r.PasswordValue == "" {
+		fmt.Println("Login and Password not set")
+		return
+	}
+	go func() {
+		
+		/*if input.RefreshToken != nil {
+			values["refresh_token"] = *input.RefreshToken
+		}*/
+		type loginStruct struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+		//fmt.Println("Pushed login button")
+		//fmt.Printf("Got Login: %v\n", r.LoginBoxValue)
+		//fmt.Printf("Got Password: %v\n", r.PasswordValue)
+		var login loginStruct
+		login.Username = r.LoginBoxValue
+		login.Password = r.PasswordValue
+		data, err := json.Marshal(&login)
+		if err != nil {
+			fmt.Println(err)
+		}
+		req, _ := http.NewRequest("POST", auth, bytes.NewBuffer(data))
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("response error")
+			fmt.Println(err)
+			return
+		}
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		//fmt.Print("BODY:")
+		//fmt.Println(string(body))
+		var ident AuthManager
+		err = json.Unmarshal(body, &ident)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(ident.AuthenticationResult.ExpiresIn)
+		setLocal(aToken, ident.AuthenticationResult.AccessToken)
+		setLocal(rToken, ident.AuthenticationResult.RefreshToken)
+		setLocal(uname, r.LoginBoxValue)
+		ident.SetExpire(ident.AuthenticationResult.ExpiresIn)
+		fmt.Println(getLocalString(aToken))
+		ident.Start()
+	}()
+}
+
+
+func (r *Root) SignupButtonEvent(e vugu.DOMEvent) {
+
+}
+
+func (r *Root) LostPasswordButtonEvent(e vugu.DOMEvent) {
+	
 }
 </script>

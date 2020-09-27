@@ -3,10 +3,9 @@
 package model
 
 type Device struct {
-	ID    string  `json:"id"`
-	Token string  `json:"token"`
-	Topic string  `json:"topic"`
-	Type  *string `json:"type"`
+	Device      string `json:"device"`
+	TimeSeconds int    `json:"time_seconds"`
+	Channel     string `json:"channel"`
 }
 
 type Login struct {

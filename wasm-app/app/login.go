@@ -13,9 +13,10 @@ var (
 
 type login struct {
 	app.Compo
-	email    string
-	password string
-	mode     string
+	email     string
+	password  string
+	password2 string
+	mode      string
 
 	passwordValid bool
 	emailValid    bool
@@ -34,12 +35,18 @@ func (l *login) Render() app.UI {
 				),
 				app.Div().Class("mdl-card__supporting-text").Body(
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").ID("login"),
+						app.Input().Class("mdl-textfield__input").ID("login").
+							OnChange(l.OnEmailUpdate).
+							OnKeyup(l.OnEmailUpdate),
 						app.Label().Class("mdl-textfield__label").For("login").Text("Email"),
 					),
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").Type("password").ID("password1"),
-						app.Label().Class("mdl-textfield__label").For("password1").Text("Password"),
+						app.Input().Class("mdl-textfield__input").Type("password").ID("password1").
+							OnChange(l.ValidateSignupPassword).
+							OnKeyup(l.ValidateSignupPassword),
+						app.Label().Class("mdl-textfield__label").For("password1").Text("Password").
+							OnChange(l.ValidateSignupPassword).
+							OnKeyup(l.ValidateSignupPassword),
 					),
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
 						app.Input().Class("mdl-textfield__input").Type("password").ID("password2"),
@@ -49,7 +56,21 @@ func (l *login) Render() app.UI {
 				app.Div().Class("mdl-card__actions").Class("mdl-card--border").Body(
 					app.Div().Class("mdl-grid").Body(
 						app.Button().Class("mdl-cell").Class("mdl-cell--12-col").Class("mdl-button").Class("mdl-button--raised").
-							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Sign up"),
+							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Sign up").OnClick(l.OnSignup),
+					),
+				),
+				app.If(l.password != l.password2 || len(l.password) < 12,
+					app.Div().Class("mdl-grid").Body(
+						app.If(len(l.password) < 12,
+							app.Div().Class("mdl-cell").Class("mdl-cell--12-col").Body(
+								app.Div().Class("mdl-color-text--red").Style("float", "center").Text("Passwords needs to be 12 characters"),
+							),
+						),
+						app.If(l.password != l.password2,
+							app.Div().Class("mdl-cell").Class("mdl-cell--12-col").Body(
+								app.Div().Class("mdl-color-text--red").Style("float", "center").Text("Passwords do not match"),
+							),
+						),
 					),
 				),
 			).ElseIf(l.mode == "lostpassword",
@@ -163,8 +184,19 @@ func (l *login) OnPasswordUpdate(ctx app.Context, e app.Event) {
 	l.Update()
 }
 
+func (l *login) ValidateSignupPassword(ctx app.Context, e app.Event) {
+	password := ctx.JSSrc.Get("value").String()
+	l.password = password
+	if password != l.password2 {
+
+	}
+}
+
 func (l *login) OnSignup(ctx app.Context, e app.Event) {
 	app.Log("Signup Pressed")
+	if l.passwordValid && l.password == l.password2 {
+
+	}
 	l.mode = "signup"
 	l.Update()
 }
@@ -176,11 +208,13 @@ func (l *login) OnLostPassword(ctx app.Context, e app.Event) {
 }
 
 func (l *login) OnLoginButtonPress(ctx app.Context, e app.Event) {
-	app.Log("Button pressed")
-	app.Log(l.email)
-	loggedIn.SetTo(true)
-	app.Navigate("/")
-	l.Update()
+	if l.passwordValid {
+		app.Log(l.email)
+		loggedIn.SetTo(true)
+		app.Navigate("/")
+		l.Update()
+		return
+	}
 }
 
 func (l *login) OnBackPress(ctx app.Context, e app.Event) {

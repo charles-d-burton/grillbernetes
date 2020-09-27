@@ -10,7 +10,7 @@ import (
 const (
 	events   = "https://events.home.rsmachiner.com/stream/home/smoker-pi/readings"
 	controls = "https://control-hub.home.rsmachiner.com/config/home/smoker-pi/configs"
-	auth     = "https://auth.home.rsmachiner.com/login"
+	auth     = "https://auth.home.rsmachiner.com/"
 	aToken   = "accessToken"
 	rToken   = "refreshToken"
 	uname    = "username"

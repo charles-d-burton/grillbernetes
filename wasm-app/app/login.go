@@ -1,14 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
 	"regexp"
 	"strings"
-
-	"github.com/tevino/abool"
 
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 )
@@ -24,26 +18,15 @@ type login struct {
 	password2 string
 	mode      string
 
-	passwordValid   bool
-	emailValid      bool
-	loginValidating *abool.AtomicBool
+	passwordValid bool
+	emailValid    bool
 }
 
 func (l *login) Render() app.UI {
-	if l.loginValidating == nil {
-		l.loginValidating = abool.New()
-	}
 	div := app.Div().Class("mdl-grid").Body(
 		app.Main().Class("mdl-card").Class("md-shadow--6dp").Body(
-			app.If(l.loginValidating.IsSet() && loggedIn.IsNotSet(),
-				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
-					app.Button().Class("mdl-button").Class("mdl-button--icon").Body(
-						app.I().Class("material-icons").Text("arrow_back"),
-					).OnClick(l.OnBackPress),
-					app.H2().Class("mdl-card__title-text").Text("K8S Kitchen Login"),
-				),
-				app.Div().Class("mdl-spinner").Class("is-active"),
-			).ElseIf(l.mode == "signup",
+
+			app.If(l.mode == "signup",
 				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
 					app.Button().Class("mdl-button").Class("mdl-button--icon").Body(
 						app.I().Class("material-icons").Text("arrow_back"),
@@ -52,18 +35,12 @@ func (l *login) Render() app.UI {
 				),
 				app.Div().Class("mdl-card__supporting-text").Body(
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").ID("login").
-							OnChange(l.OnEmailUpdate).
-							OnKeyup(l.OnEmailUpdate),
+						app.Input().Class("mdl-textfield__input").ID("login"),
 						app.Label().Class("mdl-textfield__label").For("login").Text("Email"),
 					),
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").Type("password").ID("password1").
-							OnChange(l.ValidateSignupPassword).
-							OnKeyup(l.ValidateSignupPassword),
-						app.Label().Class("mdl-textfield__label").For("password1").Text("Password").
-							OnChange(l.ValidateSignupPassword).
-							OnKeyup(l.ValidateSignupPassword),
+						app.Input().Class("mdl-textfield__input").Type("password").ID("password1"),
+						app.Label().Class("mdl-textfield__label").For("password1").Text("Password"),
 					),
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
 						app.Input().Class("mdl-textfield__input").Type("password").ID("password2"),
@@ -73,21 +50,7 @@ func (l *login) Render() app.UI {
 				app.Div().Class("mdl-card__actions").Class("mdl-card--border").Body(
 					app.Div().Class("mdl-grid").Body(
 						app.Button().Class("mdl-cell").Class("mdl-cell--12-col").Class("mdl-button").Class("mdl-button--raised").
-							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Sign up").OnClick(l.OnSignup),
-					),
-				),
-				app.If(l.password != l.password2 || len(l.password) < 12,
-					app.Div().Class("mdl-grid").Body(
-						app.If(len(l.password) < 12,
-							app.Div().Class("mdl-cell").Class("mdl-cell--12-col").Body(
-								app.Div().Class("mdl-color-text--red").Style("float", "center").Text("Passwords needs to be 12 characters"),
-							),
-						),
-						app.If(l.password != l.password2,
-							app.Div().Class("mdl-cell").Class("mdl-cell--12-col").Body(
-								app.Div().Class("mdl-color-text--red").Style("float", "center").Text("Passwords do not match"),
-							),
-						),
+							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Sign up"),
 					),
 				),
 			).ElseIf(l.mode == "lostpassword",
@@ -107,25 +70,6 @@ func (l *login) Render() app.UI {
 					app.Div().Class("mdl-grid").Body(
 						app.Button().Class("mdl-cell").Class("mdl-cell--12-col").Class("mdl-button").Class("mdl-button--raised").
 							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Reset Password"),
-					),
-				),
-			).ElseIf(l.mode == "otp",
-				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
-					app.Button().Class("mdl-button").Class("mdl-button--icon").Body(
-						app.I().Class("material-icons").Text("arrow_back"),
-					).OnClick(l.OnBackPress),
-					app.H2().Class("mdl-card__title-text").Text("K8S Kitchen Reset Code"),
-				),
-				app.Div().Class("mdl-card__supporting-text").Body(
-					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").Type("otp").ID("otp"),
-						app.Label().Class("mdl-textfield__label").For("otp").Text("Code"),
-					),
-				),
-				app.Div().Class("mdl-card__actions").Class("mdl-card--border").Body(
-					app.Div().Class("mdl-grid").Body(
-						app.Button().Class("mdl-cell").Class("mdl-cell--12-col").Class("mdl-button").Class("mdl-button--raised").
-							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Submit"),
 					),
 				),
 			).Else(
@@ -183,13 +127,10 @@ func (l *login) Render() app.UI {
 	return div
 }
 
-func (l *login) OnMount(ctx app.Context) {
-	app.Log("Login page mounted")
-}
-
 //TODO: SHould the logic to into a go fun to make it non blocking?  Maybe?
 func (l *login) OnEmailUpdate(ctx app.Context, e app.Event) {
 	email := ctx.JSSrc.Get("value").String()
+	app.Log("Runing key up event: ", email)
 	l.email = email
 	if len(strings.TrimSpace(email)) == 0 {
 		l.emailValid = true //Keep the warning from appearing on empty string
@@ -207,6 +148,7 @@ func (l *login) OnEmailUpdate(ctx app.Context, e app.Event) {
 }
 
 func (l *login) OnPasswordUpdate(ctx app.Context, e app.Event) {
+	app.Log("Updating password")
 	l.password = ctx.JSSrc.Get("value").String()
 	if len(strings.TrimSpace(l.password)) == 0 {
 		l.passwordValid = true //Keep the warning away on empty string
@@ -222,19 +164,8 @@ func (l *login) OnPasswordUpdate(ctx app.Context, e app.Event) {
 	l.Update()
 }
 
-func (l *login) ValidateSignupPassword(ctx app.Context, e app.Event) {
-	password := ctx.JSSrc.Get("value").String()
-	l.password = password
-	if password != l.password2 {
-
-	}
-}
-
 func (l *login) OnSignup(ctx app.Context, e app.Event) {
 	app.Log("Signup Pressed")
-	if l.passwordValid && l.password == l.password2 {
-
-	}
 	l.mode = "signup"
 	l.Update()
 }
@@ -246,105 +177,11 @@ func (l *login) OnLostPassword(ctx app.Context, e app.Event) {
 }
 
 func (l *login) OnLoginButtonPress(ctx app.Context, e app.Event) {
-<<<<<<< HEAD
-	if l.passwordValid {
-		app.Log(l.email)
-		loggedIn.SetTo(true)
-		app.Navigate("/")
-		l.Update()
-		return
-	}
-=======
 	app.Log("Button pressed")
-	go func() {
-		type loginStruct struct {
-			Username string `json:"username"`
-			Password string `json:"password"`
-		}
-
-		var login loginStruct
-		login.Username = l.email
-		login.Password = l.password
-		data, err := json.Marshal(&login)
-		if err != nil {
-			app.Log(err.Error())
-		}
-		req, _ := http.NewRequest("POST", auth, bytes.NewBuffer(data))
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			app.Log("response error")
-			app.Log(err.Error())
-			app.Dispatch(func() {
-				loggedIn.UnSet()
-				app.Navigate("/")
-				l.Update()
-			})
-			return
-		}
-		app.Log("RESPONSE CODE: ", resp.Status)
-		if resp.StatusCode == http.StatusOK {
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				app.Log("Problem reading response")
-				app.Log(err.Error())
-				app.Dispatch(func() {
-					loggedIn.UnSet()
-					app.Navigate("/")
-					l.Update()
-				})
-				return
-			}
-			//fmt.Print("BODY:")
-			//app.Log(string(body))
-			var ident AuthManager
-			err = json.Unmarshal(body, &ident)
-			if err != nil {
-				app.Log("Problem Unmarshalling response")
-				app.Log(err.Error())
-				app.Dispatch(func() {
-					loggedIn.UnSet()
-					l.loginValidating.UnSet()
-					//app.Navigate("/")
-					l.Update()
-				})
-				return
-			}
-			app.Log("Expires: ", ident.AuthenticationResult.ExpiresIn)
-			setLocal(aToken, ident.AuthenticationResult.AccessToken)
-			setLocal(rToken, ident.AuthenticationResult.RefreshToken)
-			setLocal(uname, l.email)
-			ident.SetExpire(ident.AuthenticationResult.ExpiresIn)
-			app.Log(getLocalString(aToken))
-			ident.Start()
-
-			app.Dispatch(func() {
-				app.Log("Login Success")
-				loggedIn.SetTo(true)
-				app.Navigate("/")
-				l.Update()
-			})
-		} else if resp.StatusCode == http.StatusUnauthorized {
-			loggedIn.UnSet()
-			app.Dispatch(func() {
-				l.loginValidating.UnSet()
-				app.Log("Unauthorized")
-				l.Update()
-			})
-
-		} else {
-			loggedIn.UnSet()
-			app.Dispatch(func() {
-				l.loginValidating.UnSet()
-				app.Log("Some Other response")
-				l.Update()
-			})
-		}
-
-	}()
-	l.loginValidating.SetTo(true)
+	app.Log(l.email)
+	loggedIn.SetTo(true)
+	app.Navigate("/")
 	l.Update()
->>>>>>> 9c876d034a0ebcc1abe99071b82054d0af33e538
 }
 
 func (l *login) OnBackPress(ctx app.Context, e app.Event) {

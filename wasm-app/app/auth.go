@@ -14,6 +14,7 @@ type AuthManager struct {
 		ExpiresIn    int    `json:"ExpiresIn"`
 		RefreshToken string `json:"RefreshToken"`
 	} `json:"AuthenticationResult"`
+	ChallengeName string `json:"ChallengeName,omitempty"`
 }
 
 //SetExpire  sets the key/value for token expiration
@@ -41,11 +42,15 @@ func (mgr *AuthManager) CheckExpire() bool {
 //Start start the loop to verify the tokens
 func (mgr *AuthManager) Start() {
 	ticker := time.NewTicker(5 * time.Second)
-	done := make(chan bool, 1)
 	go func() {
 		for {
 			select {
 			case <-done:
+				ticker.Stop()
+				loggedIn.UnSet()
+				app.Dispatch(func() {
+					app.Navigate("/")
+				})
 				return
 			case t := <-ticker.C:
 				app.Log("Refreshing at: ", t)
@@ -55,6 +60,7 @@ func (mgr *AuthManager) Start() {
 					app.Dispatch(func() {
 						app.Navigate("/")
 					})
+					done <- true
 				}
 			}
 		}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"net/url"
-	"syscall/js"
 
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 	"github.com/tevino/abool"
@@ -19,6 +18,7 @@ const (
 
 var (
 	loggedIn = abool.New()
+	done     = make(chan bool, 1)
 )
 
 type frontpage struct {
@@ -44,12 +44,4 @@ func main() {
 	app.Route("/", &frontpage{})
 	app.Route("/login", &login{})
 	app.Run()
-}
-
-func setLocal(key, value string) {
-	js.Global().Get("localStorage").Call("setItem", key, value)
-}
-
-func getLocalString(key string) string {
-	return js.Global().Get("localStorage").Call("getItem", key).String()
 }

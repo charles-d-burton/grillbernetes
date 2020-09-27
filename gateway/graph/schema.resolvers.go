@@ -34,7 +34,7 @@ func (r *mutationResolver) Register(ctx context.Context, input model.NewUser) (b
 		log.Error(err)
 		return false, err
 	}
-	resp, err := makeReq(url, data)
+	resp, err := makeJsonReq(url, data)
 	if err != nil {
 		log.Error(err)
 		return false, err
@@ -45,7 +45,7 @@ func (r *mutationResolver) Register(ctx context.Context, input model.NewUser) (b
 	}
 
 	url = authURL + "/register"
-	resp, err = makeReq(url, data)
+	resp, err = makeJsonReq(url, data)
 	if err != nil {
 		log.Error(err)
 		return false, err
@@ -73,7 +73,7 @@ func (r *mutationResolver) Login(ctx context.Context, input model.Login) (*model
 	if err != nil {
 		return nil, err
 	}
-	resp, err := makeReq(url, data)
+	resp, err := makeJsonReq(url, data)
 	body, err := ioutil.ReadAll(resp.Body)
 	log.Print("BODY:")
 	log.Println(string(body))
@@ -98,7 +98,7 @@ func (r *mutationResolver) SignOut(ctx context.Context, input model.Login) (bool
 	if err != nil {
 		return false, err
 	}
-	resp, err := makeReq(url, data)
+	resp, err := makeJsonReq(url, data)
 	if err != nil {
 		return false, err
 	}
@@ -122,7 +122,7 @@ func (r *mutationResolver) UserAvailable(ctx context.Context, input model.Userna
 		log.Error(err)
 		return false, err
 	}
-	resp, err := makeReq(url, data)
+	resp, err := makeJsonReq(url, data)
 	if err != nil {
 		log.Error(err)
 		return false, err
@@ -139,7 +139,33 @@ func (r *mutationResolver) AddDevice(ctx context.Context, input model.SendData) 
 }
 
 func (r *queryResolver) Devices(ctx context.Context) ([]*model.Device, error) {
-	panic(fmt.Errorf("not implemented"))
+	url := controlURL + "/devices/home"
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil) //This is inefficient, should change to pool of handlers with re-usable buffers
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Warn(err)
+		return nil, err
+	}
+	devices := make([]*model.Device, 0)
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(resp.Status)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Warn(err)
+		return nil, err
+	}
+	err = json.Unmarshal(body, &devices)
+	if err != nil {
+		log.Warn(err)
+		return nil, err
+	}
+	return devices, nil
 }
 
 // Mutation returns generated.MutationResolver implementation.

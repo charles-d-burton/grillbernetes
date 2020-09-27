@@ -365,11 +365,14 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 		if ok {
 			if awsErr.Code() == cognitoidentityprovider.ErrCodeResourceNotFoundException {
 				http.Error(w, "", http.StatusNotFound)
+				return
 			}
 			if awsErr.Code() == cognitoidentityprovider.ErrCodeInvalidParameterException {
 				http.Error(w, "", http.StatusInternalServerError)
+				return
 			}
 		}
+		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
 	data, err := json.Marshal(&res)

@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func makeReq(url string, data []byte) (*http.Response, error) {
+func makeJsonReq(url string, data []byte) (*http.Response, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data)) //This is inefficient, should change to pool of handlers with re-usable buffers
 	if err != nil {
@@ -19,7 +19,8 @@ func makeReq(url string, data []byte) (*http.Response, error) {
 }
 
 var (
-	json    = jsoniter.ConfigCompatibleWithStandardLibrary
-	log     = logrus.New()
-	authURL = "https://auth.home.rsmachiner.com"
+	json       = jsoniter.ConfigCompatibleWithStandardLibrary
+	log        = logrus.New()
+	authURL    = "https://auth.home.rsmachiner.com"
+	controlURL = "https://control-hub.home.rsmachiner.com"
 )

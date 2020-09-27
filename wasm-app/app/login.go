@@ -109,6 +109,25 @@ func (l *login) Render() app.UI {
 							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Reset Password"),
 					),
 				),
+			).ElseIf(l.mode == "otp",
+				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
+					app.Button().Class("mdl-button").Class("mdl-button--icon").Body(
+						app.I().Class("material-icons").Text("arrow_back"),
+					).OnClick(l.OnBackPress),
+					app.H2().Class("mdl-card__title-text").Text("K8S Kitchen Reset Code"),
+				),
+				app.Div().Class("mdl-card__supporting-text").Body(
+					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
+						app.Input().Class("mdl-textfield__input").Type("otp").ID("otp"),
+						app.Label().Class("mdl-textfield__label").For("otp").Text("Code"),
+					),
+				),
+				app.Div().Class("mdl-card__actions").Class("mdl-card--border").Body(
+					app.Div().Class("mdl-grid").Body(
+						app.Button().Class("mdl-cell").Class("mdl-cell--12-col").Class("mdl-button").Class("mdl-button--raised").
+							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Submit"),
+					),
+				),
 			).Else(
 				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
 					app.H2().Class("mdl-card__title-text").Text("K8S Kitchen Login"),
@@ -307,12 +326,19 @@ func (l *login) OnLoginButtonPress(ctx app.Context, e app.Event) {
 			})
 		} else if resp.StatusCode == http.StatusUnauthorized {
 			loggedIn.UnSet()
-			l.loginValidating.UnSet()
-			app.Log("Unauthorized")
+			app.Dispatch(func() {
+				l.loginValidating.UnSet()
+				app.Log("Unauthorized")
+				l.Update()
+			})
+
 		} else {
 			loggedIn.UnSet()
-			l.loginValidating.UnSet()
-			app.Log("Some Other response")
+			app.Dispatch(func() {
+				l.loginValidating.UnSet()
+				app.Log("Some Other response")
+				l.Update()
+			})
 		}
 
 	}()

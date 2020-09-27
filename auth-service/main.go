@@ -256,12 +256,17 @@ func (c *CognitoFlow) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !*output.UserConfirmed {
+	data, err := json.Marshal(output)
+	if err != nil {
+		log.Error(err)
+	}
+	/*if !*output.UserConfirmed {
 		log.Error("user registration failed")
 		http.Error(w, "", http.StatusInternalServerError)
 		return
-	}
-	w.WriteHeader(http.StatusCreated)
+	}*/
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
 
 // Username handles username scenario.

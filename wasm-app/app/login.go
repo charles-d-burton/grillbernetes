@@ -1,8 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/tevino/abool"
 
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 )
@@ -17,15 +23,26 @@ type login struct {
 	password string
 	mode     string
 
-	passwordValid bool
-	emailValid    bool
+	passwordValid   bool
+	emailValid      bool
+	loginValidating *abool.AtomicBool
 }
 
 func (l *login) Render() app.UI {
+	if l.loginValidating == nil {
+		l.loginValidating = abool.New()
+	}
 	div := app.Div().Class("mdl-grid").Body(
 		app.Main().Class("mdl-card").Class("md-shadow--6dp").Body(
-
-			app.If(l.mode == "signup",
+			app.If(l.loginValidating.IsSet() && loggedIn.IsNotSet(),
+				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
+					app.Button().Class("mdl-button").Class("mdl-button--icon").Body(
+						app.I().Class("material-icons").Text("arrow_back"),
+					).OnClick(l.OnBackPress),
+					app.H2().Class("mdl-card__title-text").Text("K8S Kitchen Login"),
+				),
+				app.Div().Class("mdl-spinner").Class("is-active"),
+			).ElseIf(l.mode == "signup",
 				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
 					app.Button().Class("mdl-button").Class("mdl-button--icon").Body(
 						app.I().Class("material-icons").Text("arrow_back"),
@@ -126,10 +143,13 @@ func (l *login) Render() app.UI {
 	return div
 }
 
+func (l *login) OnMount(ctx app.Context) {
+	app.Log("Login page mounted")
+}
+
 //TODO: SHould the logic to into a go fun to make it non blocking?  Maybe?
 func (l *login) OnEmailUpdate(ctx app.Context, e app.Event) {
 	email := ctx.JSSrc.Get("value").String()
-	app.Log("Runing key up event: ", email)
 	l.email = email
 	if len(strings.TrimSpace(email)) == 0 {
 		l.emailValid = true //Keep the warning from appearing on empty string
@@ -147,7 +167,6 @@ func (l *login) OnEmailUpdate(ctx app.Context, e app.Event) {
 }
 
 func (l *login) OnPasswordUpdate(ctx app.Context, e app.Event) {
-	app.Log("Updating password")
 	l.password = ctx.JSSrc.Get("value").String()
 	if len(strings.TrimSpace(l.password)) == 0 {
 		l.passwordValid = true //Keep the warning away on empty string
@@ -177,9 +196,86 @@ func (l *login) OnLostPassword(ctx app.Context, e app.Event) {
 
 func (l *login) OnLoginButtonPress(ctx app.Context, e app.Event) {
 	app.Log("Button pressed")
-	app.Log(l.email)
-	loggedIn.SetTo(true)
-	app.Navigate("/")
+	go func() {
+		type loginStruct struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+
+		var login loginStruct
+		login.Username = l.email
+		login.Password = l.password
+		data, err := json.Marshal(&login)
+		if err != nil {
+			app.Log(err.Error())
+		}
+		req, _ := http.NewRequest("POST", auth, bytes.NewBuffer(data))
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			app.Log("response error")
+			app.Log(err.Error())
+			app.Dispatch(func() {
+				loggedIn.UnSet()
+				app.Navigate("/")
+				l.Update()
+			})
+			return
+		}
+		app.Log("RESPONSE CODE: ", resp.Status)
+		if resp.StatusCode == http.StatusOK {
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				app.Log("Problem reading response")
+				app.Log(err.Error())
+				app.Dispatch(func() {
+					loggedIn.UnSet()
+					app.Navigate("/")
+					l.Update()
+				})
+				return
+			}
+			//fmt.Print("BODY:")
+			//app.Log(string(body))
+			var ident AuthManager
+			err = json.Unmarshal(body, &ident)
+			if err != nil {
+				app.Log("Problem Unmarshalling response")
+				app.Log(err.Error())
+				app.Dispatch(func() {
+					loggedIn.UnSet()
+					l.loginValidating.UnSet()
+					//app.Navigate("/")
+					l.Update()
+				})
+				return
+			}
+			app.Log("Expires: ", ident.AuthenticationResult.ExpiresIn)
+			setLocal(aToken, ident.AuthenticationResult.AccessToken)
+			setLocal(rToken, ident.AuthenticationResult.RefreshToken)
+			setLocal(uname, l.email)
+			ident.SetExpire(ident.AuthenticationResult.ExpiresIn)
+			app.Log(getLocalString(aToken))
+			ident.Start()
+
+			app.Dispatch(func() {
+				app.Log("Login Success")
+				loggedIn.SetTo(true)
+				app.Navigate("/")
+				l.Update()
+			})
+		} else if resp.StatusCode == http.StatusUnauthorized {
+			loggedIn.UnSet()
+			l.loginValidating.UnSet()
+			app.Log("Unauthorized")
+		} else {
+			loggedIn.UnSet()
+			l.loginValidating.UnSet()
+			app.Log("Some Other response")
+		}
+
+	}()
+	l.loginValidating.SetTo(true)
 	l.Update()
 }
 

@@ -111,6 +111,7 @@ func main() {
 		env := &Env{nc}
 		router.GET("/events/:group/:device/:channel", env.SubscribeSSE)
 		router.GET("/stream/:group/:device/:channel", env.SubscribeSSE)
+		router.GET("/ws/:group/:device/:channel", env.SubscribeWSS)
 		router.GET("/healthz", env.HealthCheck)
 
 	}

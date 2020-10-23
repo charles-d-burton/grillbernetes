@@ -40,14 +40,16 @@ func (env *Env) SubscribeWSS(c *gin.Context) {
 		select {
 		case <-clientGone:
 			subscriber.defunctClients <- queue //Remove our client from the client list
+			conn.Close()
 			return
 		case message := <-queue:
 			conn.WriteMessage(websocket.TextMessage, json.RawMessage(message))
-		case err := <-errs:
+		case <-errs:
 			subscriber.defunctClients <- queue //Remove our client from the client list
-			c.SSEvent("ERROR:", err.Error())
+			conn.Close()
 			return
 		case <-subscriber.errors:
+			conn.Close()
 			return
 		}
 	}

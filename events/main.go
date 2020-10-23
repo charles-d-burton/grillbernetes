@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -110,8 +109,8 @@ func main() {
 		}
 		nc.Connect()
 		env := &Env{nc}
-		router.GET("/events/:group/:device/:channel", env.Subscribe)
-		router.GET("/stream/:group/:device/:channel", env.Subscribe)
+		router.GET("/events/:group/:device/:channel", env.SubscribeSSE)
+		router.GET("/stream/:group/:device/:channel", env.SubscribeSSE)
 		router.GET("/healthz", env.HealthCheck)
 
 	}
@@ -121,47 +120,6 @@ func main() {
 func (env *Env) HealthCheck(c *gin.Context) {
 	//TODO: monitor the NATS connection
 	c.JSON(http.StatusOK, gin.H{"status": "alive"})
-}
-
-//Subscribe gin context to subscribe to an event stream returning json
-func (env *Env) Subscribe(c *gin.Context) {
-	realSSE := strings.Contains(c.FullPath(), "stream") //Check if we're looking for true SSE per the spec or streaming JSON
-	device := c.Param("device")
-	channel := c.Param("channel")
-	group := c.Param("group")
-	topic := group + "." + device + "." + channel
-	log.Info("Subscribing to topic: ", topic)
-	subscriber, err := env.natsConn.GetSubscriber(topic)
-	if err != nil {
-		c.AbortWithError(404, err)
-		return
-	}
-	log.Info("Got subscriber from NATS Connection")
-	queue := make(chan []byte, queuelen)
-	errs := make(chan error, 1)
-	subscriber.newClients <- queue //Add our new client to the recipient list
-	clientGone := c.Writer.CloseNotify()
-	c.Stream(func(w io.Writer) bool {
-		select {
-		case <-clientGone:
-			subscriber.defunctClients <- queue //Remove our client from the client list
-			return false
-		case message := <-queue:
-			if realSSE {
-				c.SSEvent("message", json.RawMessage(message))
-				return true
-			}
-			c.JSON(200, json.RawMessage(message))
-			c.String(200, "\n")
-			return true
-		case err := <-errs:
-			subscriber.defunctClients <- queue //Remove our client from the client list
-			c.SSEvent("ERROR:", err.Error())
-			return false
-		case <-subscriber.errors:
-			return false
-		}
-	})
 }
 
 //Connect to the NATS remote host with backoff

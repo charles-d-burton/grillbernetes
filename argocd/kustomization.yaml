@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- auth-service.yaml
+- control-hub.yaml
+- events.yaml
+- pub-hub.yaml
+images:
+- name: charlesdburton/grillbernetes-auth-service:latest
+  newName: charlesdburton/grillbernetes-auth-service
+  newTag: 99d12b3ab5d0ff528863c7ba94f8754287fd2507
+- name: charlesdburton/grillbernetes-control-hub:latest
+  newName: charlesdburton/grillbernetes-control-hub
+  newTag: 99d12b3ab5d0ff528863c7ba94f8754287fd2507
+- name: charlesdburton/grillbernetes-events:latest
+  newName: charlesdburton/grillbernetes-events
+  newTag: 99d12b3ab5d0ff528863c7ba94f8754287fd2507
+- name: charlesdburton/grillbernetes-pub-hub:latest
+  newName: charlesdburton/grillbernetes-pub-hub
+  newTag: 99d12b3ab5d0ff528863c7ba94f8754287fd250
+

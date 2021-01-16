@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Build arm version of auth-service
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Docker Login
         run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
       - name: Build Arm
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Build arm64 version of auth-service
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Docker Login
         run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
       - name: Build Arm64
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Build amd64 version of auth-service
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Docker Login
         run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
       - name: Build AMD64
@@ -50,20 +50,40 @@ jobs:
     name: Collect manifest and push
     needs: ["auth-service-build-arm", "auth-service-build-arm64", "auth-service-build-amd64"]
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Docker Login
         run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
       - name: Build Manifest
         run: |
-          DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create charlesdburton/grillbernetes-auth-service:latest \
+          DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create charlesdburton/grillbernetes-auth-service:${{ github.sha }} \
           charlesdburton/grillbernetes-auth-service:amd64 \
           charlesdburton/grillbernetes-auth-service:arm \
           charlesdburton/grillbernetes-auth-service:arm64 
       - name: Annotate Arm
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm charlesdburton/grillbernetes-auth-service:latest charlesdburton/grillbernetes-auth-service:arm
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm charlesdburton/grillbernetes-auth-service:${{ github.sha }} charlesdburton/grillbernetes-auth-service:arm
       - name: Annotate Arm64
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm64 charlesdburton/grillbernetes-auth-service:latest charlesdburton/grillbernetes-auth-service:arm64
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm64 charlesdburton/grillbernetes-auth-service:${{ github.sha }} charlesdburton/grillbernetes-auth-service:arm64
       - name: Annotate AMD64
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch amd64 charlesdburton/grillbernetes-auth-service:latest charlesdburton/grillbernetes-auth-service:amd64
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch amd64 charlesdburton/grillbernetes-auth-service:${{ github.sha }} charlesdburton/grillbernetes-auth-service:amd64
       - name: Push Manifest
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-auth-service:latest
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-auth-service:${{ github.sha }}
+  auth-service-kustomize:
+    name: Auth-Service-Kustomize
+    runs-on: ubuntu-latest
+    needs: ["auth-service-build-manifest"]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
+          fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v1
+        with:
+          kustomize-version: "3.9.1"
+      - name: Edit Kustomize
+        run: |
+          cd argocd
+          kustomize edit set image charlesdburton/grillbernetes-auth-service:latest=charlesdburton/grillbernetes-auth-service:${{ github.sha }}
+          cat kustomization.yaml
+

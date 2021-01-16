@@ -1,0 +1,35 @@
+name: GrillbernetesDeploy
+
+on:
+  workflow_run:
+    workflows:
+      - "AuthServiceBuild"
+      - "ControlHubBuild"
+      - "EventsBuild"
+      - "PubHubBuild"
+    branches:
+      - master
+    types:
+      - "completed"
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
+          fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
+          
+      - name: Commit Files
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "Github Actions"
+          git commit -a -m "Set Kustomization Docker Tag"
+      
+      - name: Push Changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.head_ref }}

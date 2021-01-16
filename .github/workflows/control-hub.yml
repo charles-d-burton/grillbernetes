@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Build arm version of control-hub
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Docker Login
         run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
       - name: Build Arm
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Build arm64 version of control-hub
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Docker Login
         run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
       - name: Build Arm64
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Build amd64 version of control-hub
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Docker Login
         run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
       - name: Build AMD64
@@ -50,20 +50,39 @@ jobs:
     name: Collect manifest and push
     needs: ["control-hub-build-arm", "control-hub-build-arm64", "control-hub-build-amd64"]
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Docker Login
         run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
       - name: Build Manifest
         run: |
-          DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create charlesdburton/grillbernetes-control-hub:latest \
+          DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create charlesdburton/grillbernetes-control-hub:${{ github.sha }} \
           charlesdburton/grillbernetes-control-hub:amd64 \
           charlesdburton/grillbernetes-control-hub:arm \
           charlesdburton/grillbernetes-control-hub:arm64 
       - name: Annotate Arm
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm charlesdburton/grillbernetes-control-hub:latest charlesdburton/grillbernetes-control-hub:arm
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm charlesdburton/grillbernetes-control-hub:${{ github.sha }} charlesdburton/grillbernetes-control-hub:arm
       - name: Annotate Arm64
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm64 charlesdburton/grillbernetes-control-hub:latest charlesdburton/grillbernetes-control-hub:arm64
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm64 charlesdburton/grillbernetes-control-hub:${{ github.sha }} charlesdburton/grillbernetes-control-hub:arm64
       - name: Annotate AMD64
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch amd64 charlesdburton/grillbernetes-control-hub:latest charlesdburton/grillbernetes-control-hub:amd64
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch amd64 charlesdburton/grillbernetes-control-hub:${{ github.sha }} charlesdburton/grillbernetes-control-hub:amd64
       - name: Push Manifest
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-control-hub:latest
+        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-control-hub:${{ github.sha }}
+  control-hub-kustomize:
+    name: Control-Hub-Kustomize
+    runs-on: ubuntu-latest
+    needs: ["control-hub-build-manifest"]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
+          fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v1
+        with:
+          kustomize-version: "3.9.1"
+      - name: Edit Kustomize
+        run: |
+          cd argocd
+          kustomize edit set image charlesdburton/grillbernetes-control-hub:latest=charlesdburton/grillbernetes-control-hub:${{ github.sha }}
+          cat kustomization.yaml

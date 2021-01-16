@@ -3,8 +3,7 @@ name: PubHubBuild
 on:
   push:
     paths:
-    - 'pub-hub/**.go'
-    - 'pub-hub/Dockerfile'
+    - 'pub-hub/**'
     branches:
     - master
 
@@ -55,7 +54,7 @@ jobs:
         run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
       - name: Build Manifest
         run: |
-          DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create charlesdburton/grillbernetes-pub-hub:latest \
+          DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create charlesdburton/grillbernetes-pub-hub:${{ github.sha }} \
           charlesdburton/grillbernetes-pub-hub:amd64 \
           charlesdburton/grillbernetes-pub-hub:arm \
           charlesdburton/grillbernetes-pub-hub:arm64 

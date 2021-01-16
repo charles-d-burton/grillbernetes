@@ -3,8 +3,7 @@ name: AuthServiceBuild
 on:
   push:
     paths:
-    - 'auth-service/**.go'
-    - 'auth-service/Dockerfile'
+    - 'auth-service/**'
     branches:
     - master
 

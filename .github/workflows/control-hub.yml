@@ -3,8 +3,7 @@ name: ControlHubBuild
 on:
   push:
     paths:
-    - 'control-hub/**.go'
-    - 'control-hub/Dockerfile'
+    - 'control-hub/**'
     branches:
     - master
 

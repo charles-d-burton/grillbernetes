@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
@@ -31,6 +32,12 @@ func init() {
 	flag.StringVar(&redisHost, "rd", "", "Start the controller connecting to the redis cluster")
 	flag.StringVar(&redisHost, "redis-host", "", "Start the controller connecting to the redis cluster")
 	flag.Parse()
+	if redisHost == "" {
+		redisHost = os.Getenv("REDIS_HOST")
+	}
+	if redisHost == "" {
+		usage()
+	}
 	rc = redis.NewClient(&redis.Options{
 		Addr:         redisHost,
 		Password:     "",

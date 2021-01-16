@@ -1,6 +1,7 @@
 name: GrillbernetesDeploy
 
 on:
+  push:
     branches:
       - master
     paths:

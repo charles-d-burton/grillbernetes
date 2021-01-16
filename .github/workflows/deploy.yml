@@ -8,6 +8,7 @@ on:
       - "control-hub/**"
       - "events/**"
       - "pub-hub/**"
+      - ".github/workflows/**"
 jobs:
   auth-service-build-arm:
     runs-on: ubuntu-latest

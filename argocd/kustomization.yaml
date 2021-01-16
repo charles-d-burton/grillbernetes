@@ -18,4 +18,3 @@ images:
 - name: charlesdburton/grillbernetes-pub-hub:latest
   newName: charlesdburton/grillbernetes-pub-hub
   newTag: 99d12b3ab5d0ff528863c7ba94f8754287fd250
-

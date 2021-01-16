@@ -2,10 +2,10 @@ name: AuthServiceBuild
 
 on:
   push:
-    paths:
-    - 'auth-service/**'
     branches:
-    - master
+      - master
+    paths-ignore:
+      - "argocd/**"
 
 jobs:
   auth-service-build-arm:
@@ -66,23 +66,4 @@ jobs:
         run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch amd64 charlesdburton/grillbernetes-auth-service:${{ github.sha }} charlesdburton/grillbernetes-auth-service:amd64
       - name: Push Manifest
         run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-auth-service:${{ github.sha }}
-  auth-service-kustomize:
-    name: Auth-Service-Kustomize
-    runs-on: ubuntu-latest
-    needs: ["auth-service-build-manifest"]
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
-        with:
-          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
-          fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
-      - name: Setup Kustomize
-        uses: imranismail/setup-kustomize@v1
-        with:
-          kustomize-version: "3.9.1"
-      - name: Edit Kustomize
-        run: |
-          cd argocd
-          kustomize edit set image charlesdburton/grillbernetes-auth-service:latest=charlesdburton/grillbernetes-auth-service:${{ github.sha }}
-          cat kustomization.yaml
 

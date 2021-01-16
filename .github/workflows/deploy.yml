@@ -22,6 +22,19 @@ jobs:
           persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
           fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
           
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v1
+        with:
+          kustomize-version: "3.9.1"
+      - name: Edit Kustomize
+        run: |
+          cd argocd
+          kustomize edit set image charlesdburton/grillbernetes-auth-service:latest=charlesdburton/grillbernetes-auth-service:${{ github.sha }}
+          kustomize edit set image charlesdburton/grillbernetes-control-hub:latest=charlesdburton/grillbernetes-control-hub:${{ github.sha }}
+          kustomize edit set image charlesdburton/grillbernetes-events:latest=charlesdburton/grillbernetes-events:${{ github.sha }}
+          kustomize edit set image charlesdburton/grillbernetes-pub-hub:latest=charlesdburton/grillbernetes-pub-hub:${{ github.sha }}
+          cat kustomization.yaml
+          
       - name: Commit Files
         run: |
           git config --local user.email "action@github.com"

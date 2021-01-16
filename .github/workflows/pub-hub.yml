@@ -2,10 +2,10 @@ name: PubHubBuild
 
 on:
   push:
-    paths:
-    - 'pub-hub/**'
     branches:
-    - master
+      - master
+    paths-ignore:
+      - "argocd/**"
 
 jobs:
   pub-hub-build-arm:
@@ -66,22 +66,4 @@ jobs:
         run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch amd64 charlesdburton/grillbernetes-pub-hub:${{ github.sha }} charlesdburton/grillbernetes-pub-hub:amd64
       - name: Push Manifest
         run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-pub-hub:${{ github.sha }}
-  pub-hub-kustomize:
-    name: Pub-Hub-Kustomize
-    runs-on: ubuntu-latest
-    needs: ["pub-hub-build-manifest"]
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
-        with:
-          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
-          fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
-      - name: Setup Kustomize
-        uses: imranismail/setup-kustomize@v1
-        with:
-          kustomize-version: "3.9.1"
-      - name: Edit Kustomize
-        run: |
-          cd argocd
-          kustomize edit set image charlesdburton/grillbernetes-pub-hub:latest=charlesdburton/grillbernetes-pub-hub:${{ github.sha }}
-          cat kustomization.yaml
+  

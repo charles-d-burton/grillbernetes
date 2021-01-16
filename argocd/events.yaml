@@ -28,7 +28,7 @@ spec:
       - name: events
         image: "charlesdburton/grillbernetes-events:latest"
         args:
-        - "-nh=nats://nats-cluster:4222"
+        - "-nh=nats://nats-cluster.default.svc:4222"
         - "-d=true"
         ports:
         - containerPort: 7777

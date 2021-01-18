@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +19,8 @@ var (
 	usageStr = `
 Usage: pismoker [options]
 Options:
-	-nh, --nats-host       <NATSHost>     Start the controller connecting to the defined NATS Streaming server
+	-nh, --nats-host       <NATS_HOST>     Start the controller connecting to the defined NATS Streaming server
+	-rd, --redis-host      <REDIS_HOST>    Start the controller connecting to the defined Redis Host
 `
 	log = logrus.New()
 	sc  stan.Conn
@@ -51,6 +53,18 @@ func init() {
 	flag.StringVar(&redisHost, "rd", "", "Start the controller connecting to the redis cluster")
 	flag.StringVar(&redisHost, "redis-host", "", "Start the controller connecting to the redis cluster")
 	flag.Parse()
+	if natsHost == "" {
+		natsHost = os.Getenv("NATS_HOST")
+		if natsHost == "" {
+			log.Fatal("NATS_HOST Undefined\n", usageStr)
+		}
+	}
+	if redisHost == "" {
+		redisHost = os.Getenv("REDIS_HOST")
+		if redisHost == "" {
+			log.Fatal("REDIS_HOST Undefined\n", usageStr)
+		}
+	}
 	nc, err := nats.Connect(natsHost)
 	if err != nil {
 		log.Fatal(err)

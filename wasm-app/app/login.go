@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -35,15 +39,21 @@ func (l *login) Render() app.UI {
 				),
 				app.Div().Class("mdl-card__supporting-text").Body(
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").ID("login"),
+						app.Input().Class("mdl-textfield__input").ID("login").
+							OnChange(l.OnEmailUpdate).
+							OnKeyup(l.OnEmailUpdate),
 						app.Label().Class("mdl-textfield__label").For("login").Text("Email"),
 					),
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").Type("password").ID("password1"),
+						app.Input().Class("mdl-textfield__input").Type("password").ID("password1").
+							OnChange(l.OnPasswordUpdate).
+							OnKeyup(l.OnPasswordUpdate),
 						app.Label().Class("mdl-textfield__label").For("password1").Text("Password"),
 					),
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").Type("password").ID("password2"),
+						app.Input().Class("mdl-textfield__input").Type("password").ID("password2").
+							OnChange(l.ValidateSignupPasswords).
+							OnKeyup(l.ValidateSignupPasswords),
 						app.Label().Class("mdl-textfield__label").For("password2").Text("Password Repeat"),
 					),
 				),
@@ -51,6 +61,21 @@ func (l *login) Render() app.UI {
 					app.Div().Class("mdl-grid").Body(
 						app.Button().Class("mdl-cell").Class("mdl-cell--12-col").Class("mdl-button").Class("mdl-button--raised").
 							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Sign up"),
+					),
+				),
+				app.If(l.password != l.password2 || len(l.password) < 12 || !l.emailValid,
+					app.Div().Class("mdl-grid").Body(
+						app.Div().Class("mdl-cell").Class("mdl-cell--12-col").Body(
+							app.If(!l.emailValid,
+								app.Div().Class("mdl-color-text--red").Style("float", "center").Text("Email not valid"),
+							),
+							app.If(l.password != l.password2,
+								app.Div().Class("mdl-color-text--red").Style("float", "center").Text("Passwords must match"),
+							),
+							app.If(len(l.password) < 12,
+								app.Div().Class("mdl-color-text--red").Style("float", "center").Text("Password must be at least 12 characters"),
+							),
+						),
 					),
 				),
 			).ElseIf(l.mode == "lostpassword",
@@ -164,9 +189,61 @@ func (l *login) OnPasswordUpdate(ctx app.Context, e app.Event) {
 	l.Update()
 }
 
+func (l *login) ValidateSignupPasswords(ctx app.Context, e app.Event) {
+	l.password2 = ctx.JSSrc.Get("value").String()
+	if l.password != l.password2 {
+		l.passwordValid = false
+		l.Update()
+		return
+	}
+	l.Update()
+	l.passwordValid = true
+}
+
 func (l *login) OnSignup(ctx app.Context, e app.Event) {
 	app.Log("Signup Pressed")
 	l.mode = "signup"
+	l.Update()
+}
+
+func (l *login) OnSingupRequest(ctx app.Context, e app.Event) {
+	if l.password == l.password2 {
+		go func() {
+			type newUser struct {
+				Username string `json:"username"`
+				Password string `json:"password"`
+				Email    string `json:"email"`
+			}
+
+			var user newUser
+			user.Username = strings.Split(l.email, "@")[0]
+			user.Password = l.password
+			user.Email = l.email
+
+			data, err := json.Marshal(&user)
+			if err != nil {
+				app.Log(err.Error())
+			}
+			req, _ := http.NewRequest("POST", auth+"/register", bytes.NewBuffer(data))
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				app.Log(err.Error())
+			}
+			if resp.StatusCode == http.StatusOK {
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					app.Log(err.Error())
+				}
+				app.Log(string(body))
+				app.Dispatch(func() {
+					l.mode = "otp"
+					l.Update()
+				})
+			}
+		}()
+	}
+	l.loginValidating.SetTo(true)
 	l.Update()
 }
 
@@ -178,9 +255,93 @@ func (l *login) OnLostPassword(ctx app.Context, e app.Event) {
 
 func (l *login) OnLoginButtonPress(ctx app.Context, e app.Event) {
 	app.Log("Button pressed")
-	app.Log(l.email)
-	loggedIn.SetTo(true)
-	app.Navigate("/")
+	go func() {
+		type loginStruct struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+
+		var login loginStruct
+		login.Username = l.email
+		login.Password = l.password
+		data, err := json.Marshal(&login)
+		if err != nil {
+			app.Log(err.Error())
+		}
+		req, _ := http.NewRequest("POST", auth+"login", bytes.NewBuffer(data))
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			app.Log("response error")
+			app.Log(err.Error())
+			app.Dispatch(func() {
+				loggedIn.UnSet()
+				app.Navigate("/")
+				l.Update()
+			})
+			return
+		}
+		app.Log("RESPONSE CODE: ", resp.Status)
+		if resp.StatusCode == http.StatusOK {
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				app.Log("Problem reading response")
+				app.Log(err.Error())
+				app.Dispatch(func() {
+					loggedIn.UnSet()
+					app.Navigate("/")
+					l.Update()
+				})
+				return
+			}
+			//fmt.Print("BODY:")
+			//app.Log(string(body))
+			var ident AuthManager
+			err = json.Unmarshal(body, &ident)
+			if err != nil {
+				app.Log("Problem Unmarshalling response")
+				app.Log(err.Error())
+				app.Dispatch(func() {
+					loggedIn.UnSet()
+					l.loginValidating.UnSet()
+					//app.Navigate("/")
+					l.Update()
+				})
+				return
+			}
+			app.Log("Expires: ", ident.AuthenticationResult.ExpiresIn)
+			setLocal(aToken, ident.AuthenticationResult.AccessToken)
+			setLocal(rToken, ident.AuthenticationResult.RefreshToken)
+			setLocal(uname, l.email)
+			ident.SetExpire(ident.AuthenticationResult.ExpiresIn)
+			app.Log(getLocalString(aToken))
+			ident.Start()
+
+			app.Dispatch(func() {
+				app.Log("Login Success")
+				loggedIn.SetTo(true)
+				app.Navigate("/")
+				l.Update()
+			})
+		} else if resp.StatusCode == http.StatusUnauthorized {
+			loggedIn.UnSet()
+			app.Dispatch(func() {
+				l.loginValidating.UnSet()
+				app.Log("Unauthorized")
+				l.Update()
+			})
+
+		} else {
+			loggedIn.UnSet()
+			app.Dispatch(func() {
+				l.loginValidating.UnSet()
+				app.Log("Some Other response")
+				l.Update()
+			})
+		}
+
+	}()
+	l.loginValidating.SetTo(true)
 	l.Update()
 }
 

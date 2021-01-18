@@ -1,34 +1,34 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: pub-hub
+  name: control-hub
 spec:
   ports:
   - port: 80
     targetPort: 7777
   selector:
-    app: pub-hub
+    app: control-hub
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pub-hub
+  name: control-hub
 spec:
   selector:
     matchLabels:
-      app: pub-hub
+      app: control-hub
   replicas: 1
+  revisionHistoryLimit: 2
   template:
     metadata:
       labels:
-        app: pub-hub
+        app: control-hub
     spec:
       containers:
-      - name: pub-hub
-        image: "charlesdburton/grillbernetes-pub-hub:latest"
+      - name: control-hub
+        image: "charlesdburton/grillbernetes-control-hub:latest"
         args:
-        - "-rd=redis:6379"
-        - "-nh=nats://nats-cluster:4222"
+        - "-rd=redis.default.svc:6379"
         ports:
         - containerPort: 7777
         imagePullPolicy: Always
@@ -50,7 +50,7 @@ spec:
 apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
-  name: pub-hub
+  name: control-hub
   annotations:
     kubernetes.io/ingress.class: "nginx"
     cert-manager.io/cluster-issuer: "letsencrypt"
@@ -58,12 +58,12 @@ metadata:
 spec:
   tls:
   - hosts:
-    - pub-hub.home.rsmachiner.com
-    secretName: pub-hub
+    - control-hub.home.rsmachiner.com
+    secretName: control-hub
   rules:
-  - host: pub-hub.home.rsmachiner.com
+  - host: control-hub.home.rsmachiner.com
     http:
       paths:
       - backend:
-          serviceName: pub-hub
+          serviceName: control-hub
           servicePort: 80

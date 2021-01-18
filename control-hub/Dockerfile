@@ -17,8 +17,6 @@ WORKDIR /app
 COPY ./ .
 RUN GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o control-hub
 
-
-
 FROM scratch as arm
 COPY --from=build-arm /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build-arm /app/control-hub /go/bin/control-hub

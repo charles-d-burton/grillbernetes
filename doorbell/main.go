@@ -15,7 +15,7 @@ const (
 
 var (
 	buttonPresses = make(chan bool, 100)
-	lastPress int64
+	lastPress     int64
 )
 
 func main() {

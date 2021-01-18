@@ -256,6 +256,7 @@ func (c *CognitoFlow) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+<<<<<<< HEAD
 	/*if !*output.UserConfirmed {
 		log.Error("user registration failed")
 		http.Error(w, "", http.StatusInternalServerError)
@@ -267,6 +268,17 @@ func (c *CognitoFlow) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+=======
+	data, err := json.Marshal(output)
+	if err != nil {
+		log.Error(err)
+	}
+	/*if !*output.UserConfirmed {
+		log.Error("user registration failed")
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}*/
+>>>>>>> d52ec483e53ba854c2ed244299d37af4066bf9f5
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
 }

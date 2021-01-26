@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/tevino/abool"
-
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 )
 
@@ -24,26 +22,15 @@ type login struct {
 	password2 string
 	mode      string
 
-	passwordValid   bool
-	emailValid      bool
-	loginValidating *abool.AtomicBool
+	passwordValid bool
+	emailValid    bool
 }
 
 func (l *login) Render() app.UI {
-	if l.loginValidating == nil {
-		l.loginValidating = abool.New()
-	}
 	div := app.Div().Class("mdl-grid").Body(
 		app.Main().Class("mdl-card").Class("md-shadow--6dp").Body(
-			app.If(l.loginValidating.IsSet() && loggedIn.IsNotSet(),
-				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
-					app.Button().Class("mdl-button").Class("mdl-button--icon").Body(
-						app.I().Class("material-icons").Text("arrow_back"),
-					).OnClick(l.OnBackPress),
-					app.H2().Class("mdl-card__title-text").Text("K8S Kitchen Login"),
-				),
-				app.Div().Class("mdl-spinner").Class("is-active"),
-			).ElseIf(l.mode == "signup",
+
+			app.If(l.mode == "signup",
 				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
 					app.Button().Class("mdl-button").Class("mdl-button--icon").Body(
 						app.I().Class("material-icons").Text("arrow_back"),
@@ -110,25 +97,6 @@ func (l *login) Render() app.UI {
 							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Reset Password"),
 					),
 				),
-			).ElseIf(l.mode == "otp",
-				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
-					app.Button().Class("mdl-button").Class("mdl-button--icon").Body(
-						app.I().Class("material-icons").Text("arrow_back"),
-					).OnClick(l.OnBackPress),
-					app.H2().Class("mdl-card__title-text").Text("K8S Kitchen Reset Code"),
-				),
-				app.Div().Class("mdl-card__supporting-text").Body(
-					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").Type("otp").ID("otp"),
-						app.Label().Class("mdl-textfield__label").For("otp").Text("Code"),
-					),
-				),
-				app.Div().Class("mdl-card__actions").Class("mdl-card--border").Body(
-					app.Div().Class("mdl-grid").Body(
-						app.Button().Class("mdl-cell").Class("mdl-cell--12-col").Class("mdl-button").Class("mdl-button--raised").
-							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Submit"),
-					),
-				),
 			).Else(
 				app.Div().Class("mdl-card__title mdl-color--primary").Class("mdl-color-text--white").Class("relative").Body(
 					app.H2().Class("mdl-card__title-text").Text("K8S Kitchen Login"),
@@ -184,13 +152,10 @@ func (l *login) Render() app.UI {
 	return div
 }
 
-func (l *login) OnMount(ctx app.Context) {
-	app.Log("Login page mounted")
-}
-
 //TODO: SHould the logic to into a go fun to make it non blocking?  Maybe?
 func (l *login) OnEmailUpdate(ctx app.Context, e app.Event) {
 	email := ctx.JSSrc.Get("value").String()
+	app.Log("Runing key up event: ", email)
 	l.email = email
 	if len(strings.TrimSpace(email)) == 0 {
 		l.emailValid = true //Keep the warning from appearing on empty string
@@ -208,6 +173,7 @@ func (l *login) OnEmailUpdate(ctx app.Context, e app.Event) {
 }
 
 func (l *login) OnPasswordUpdate(ctx app.Context, e app.Event) {
+	app.Log("Updating password")
 	l.password = ctx.JSSrc.Get("value").String()
 	if len(strings.TrimSpace(l.password)) == 0 {
 		l.passwordValid = true //Keep the warning away on empty string

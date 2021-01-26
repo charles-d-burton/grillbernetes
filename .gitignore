@@ -5,3 +5,4 @@ main
 bin
 dist
 doorbell
+app.wasm

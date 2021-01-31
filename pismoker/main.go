@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"flag"
@@ -10,7 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/charles-d-burton/grillbernetes/pismoker/max31855"
 	"github.com/felixge/pidctrl"
 	"github.com/jeffchao/backoff"
+	"github.com/pelletier/go-toml"
 	"github.com/tevino/abool"
 	"periph.io/x/periph/conn/gpio"
 	"periph.io/x/periph/conn/gpio/gpioreg"
@@ -45,12 +45,11 @@ Options:
 	dataHost         = ""
 	controlHost      = ""
 	relayPwr         = ""
-	machineName      = ""
 	id               = ""
-	group            = ""
 	sensorType       = ""
 	sampleRate       int
 	sensorSampleRate int
+	machineConfig    MachineConfig
 	signalChan       = make(chan os.Signal, 1)
 	controlChan      = make(chan *ControlState, 5)
 	readings         = make(chan Reading, 1000)
@@ -69,12 +68,8 @@ func usage() {
 func init() {
 	flag.StringVar(&dataHost, "dh", "", "Start the controller connecting to the defined event consumer")
 	flag.StringVar(&dataHost, "data-host", "", "Start the controller connecting to the defined event consumer")
-	flag.StringVar(&machineName, "n", "", "Name of the machine you're working with, defaults to hostname")
-	flag.StringVar(&machineName, "name", "", "Name of the machine you're working with, defaults to hostname")
 	flag.StringVar(&controlHost, "ch", "", "Hostname:Port of the config enpoint")
 	flag.StringVar(&controlHost, "control-host", "", "Hostname:Port of the config enpoint")
-	flag.StringVar(&group, "g", "home", "Logical group")
-	flag.StringVar(&group, "group", "home", "Logical group")
 	flag.IntVar(&sampleRate, "sr", 1, "Frequency in seconds to take a data sample")
 	flag.IntVar(&sampleRate, "sample-rate", 1, "Frequency in seconds to take a data sample")
 	flag.IntVar(&sensorSampleRate, "ssr", 100, "Frequency in ms to poll the sensor for data")
@@ -84,10 +79,10 @@ func init() {
 	flag.StringVar(&relayPwr, "rp", "23", "GPIO Pin by Name to drive relay")
 	flag.StringVar(&relayPwr, "relay-pin", "23", "GPIO Pin by Name to drive relay")
 	flag.Parse()
-	if dataHost == "" || controlHost == "" || group == "" || sensorType == "" {
+	if dataHost == "" || controlHost == "" || sensorType == "" {
 		usage()
 	}
-	if machineName == "" {
+	/*if machineName == "" {
 		name, err := os.Hostname()
 		if err != nil {
 			log.Fatal(err)
@@ -99,7 +94,7 @@ func init() {
 			log.Fatal(err)
 		}
 		id = serial
-	}
+	}*/
 	log.Println("Starting GPIO initialization")
 	if _, err := host.Init(); err != nil {
 		log.Fatal(err)
@@ -134,6 +129,24 @@ type Reading struct {
 
 // NOTE: Use tls scheme for TLS, e.g. stan-sub -s tls://demo.nats.io:4443 foo
 func main() {
+	if _, err := os.Stat(deviceConfigLocation); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Dir(deviceConfigLocation), 0770); err != nil {
+			log.Fatal(err)
+		}
+		_, err = os.Create(deviceConfigLocation)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = startGatt()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	data, err := ioutil.ReadFile(deviceConfigLocation)
+	if err != nil {
+		log.Fatal(err)
+	}
+	toml.Unmarshal(data, &machineConfig)
 	//controller.StartServer(natsHost, machineName+"-readings", machineName+"-control")
 	Fanout()       //Start the Fanout
 	PollRunState() //Start watching for runstate updates
@@ -173,7 +186,7 @@ func PollRunState() {
 			select {
 			case <-ticker.C:
 				//log.Println(t)
-				resp, err := http.Get(controlHost + "/" + "config" + "/" + group + "/" + machineName + "/configs")
+				resp, err := http.Get(controlHost + "/" + "config" + "/" + machineConfig.OwnerUID + "/" + machineConfig.DeviceSerial + "/configs")
 				if err != nil {
 					log.Println(err)
 					continue
@@ -202,7 +215,7 @@ func PollRunState() {
 func PublishEvents() chan Reading {
 	log.Println("Starting Publish event loop")
 	reads := make(chan Reading, 1000)
-	eventStream := dataHost + "/" + group + "/" + machineName + "/readings"
+	eventStream := dataHost + "/" + machineConfig.OwnerUID + "/" + machineConfig.DeviceSerial + "/readings"
 	dataMap := make(map[string]Reading, 1)
 	var buf bytes.Buffer
 	go func() {
@@ -410,25 +423,4 @@ func CtoF(c float64) float64 {
 //FtoC conver farenheit to celsius
 func FtoC(f float64) float64 {
 	return ((f - 32) * 5 / 9)
-}
-
-func GetSerial() (string, error) {
-	file, err := os.Open("/proc/cpuinfo")
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		res := strings.Contains(line, "Serial")
-		if res {
-			serial := strings.TrimSpace(strings.Split(line, ":")[1])
-			return serial, nil
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-	return "", nil
 }

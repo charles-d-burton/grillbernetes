@@ -271,7 +271,6 @@ func SetupConfig(data []byte) error {
 	if err != nil {
 		return err
 	}
-	machineConfig = machine //set the global config var
 
 	//Write out the WPA config
 	var tmplBytes bytes.Buffer

@@ -1,8 +1,8 @@
+// +build js,wasm
+
 package main
 
 import "syscall/js"
-
-// +build js,wasm
 
 func setLocal(key, value string) {
 	js.Global().Get("localStorage").Call("setItem", key, value)

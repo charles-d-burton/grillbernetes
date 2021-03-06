@@ -21,6 +21,7 @@ type login struct {
 	password  string
 	password2 string
 	mode      string
+	otp       string
 
 	passwordValid bool
 	emailValid    bool
@@ -39,28 +40,28 @@ func (l *login) Render() app.UI {
 				),
 				app.Div().Class("mdl-card__supporting-text").Body(
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").ID("login").
+						app.Input().Class("mdl-textfield__input").ID("login").Placeholder("Email").
 							OnChange(l.OnEmailUpdate).
 							OnKeyup(l.OnEmailUpdate),
-						app.Label().Class("mdl-textfield__label").For("login").Text("Email"),
+						app.Label().Class("mdl-textfield__label").For("login"),
 					),
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").Type("password").ID("password1").
+						app.Input().Class("mdl-textfield__input").Type("password").ID("password").Placeholder("Password").
 							OnChange(l.OnPasswordUpdate).
 							OnKeyup(l.OnPasswordUpdate),
-						app.Label().Class("mdl-textfield__label").For("password1").Text("Password"),
+						app.Label().Class("mdl-textfield__label").For("password"),
 					),
 					app.Div().Class("mdl-textfield").Class("mdl-textfield--floating-label").Body(
-						app.Input().Class("mdl-textfield__input").Type("password").ID("password2").
+						app.Input().Class("mdl-textfield__input").Type("password").ID("password2").Placeholder("Password Repeat").
 							OnChange(l.ValidateSignupPasswords).
 							OnKeyup(l.ValidateSignupPasswords),
-						app.Label().Class("mdl-textfield__label").For("password2").Text("Password Repeat"),
+						app.Label().Class("mdl-textfield__label").For("password2"),
 					),
 				),
 				app.Div().Class("mdl-card__actions").Class("mdl-card--border").Body(
 					app.Div().Class("mdl-grid").Body(
 						app.Button().Class("mdl-cell").Class("mdl-cell--12-col").Class("mdl-button").Class("mdl-button--raised").
-							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Sign up"),
+							Class("mdl-button--colored").Class("mdl-color-text--white").Text("Sign up").OnClick(l.OnSingupRequest),
 					),
 				),
 				app.If(l.password != l.password2 || len(l.password) < 12 || !l.emailValid,
@@ -127,6 +128,7 @@ func (l *login) Render() app.UI {
 					app.Div().Class("mdl-grid").Body(
 						app.Div().Class("mdl-cell").Class("mdl-cell--12-col").Body(
 							app.Div().Class("mdl-color-text--primary").Style("float", "left").Text("Sign up!").OnClick(l.OnSignup),
+							//app.Div().Class("mdl-color-text--primary").Style("float", "center").Text("Enter Code").OnClick(l.OnReqValideteCode),
 							app.Div().Class("mdl-color-text--primary").Style("float", "right").Text("Lost Password?").OnClick(l.OnLostPassword),
 						),
 					),
@@ -207,8 +209,9 @@ func (l *login) OnSignup(ctx app.Context, e app.Event) {
 }
 
 func (l *login) OnSingupRequest(ctx app.Context, e app.Event) {
-	if l.password == l.password2 {
+	if l.password == l.password2 && l.emailValid {
 		go func() {
+			defer l.Update()
 			type newUser struct {
 				Username string `json:"username"`
 				Password string `json:"password"`
@@ -224,11 +227,13 @@ func (l *login) OnSingupRequest(ctx app.Context, e app.Event) {
 			if err != nil {
 				app.Log(err.Error())
 			}
-			req, _ := http.NewRequest("POST", auth+"/register", bytes.NewBuffer(data))
+			req, _ := http.NewRequest("POST", auth+"register", bytes.NewBuffer(data))
 			client := &http.Client{}
 			resp, err := client.Do(req)
 			if err != nil {
 				app.Log(err.Error())
+				l.mode = ""
+				l.Update()
 			}
 			if resp.StatusCode == http.StatusOK {
 				body, err := ioutil.ReadAll(resp.Body)
@@ -238,9 +243,68 @@ func (l *login) OnSingupRequest(ctx app.Context, e app.Event) {
 				app.Log(string(body))
 				app.Dispatch(func() {
 					l.mode = "otp"
+					l.loginValidating.UnSet()
 					l.Update()
 				})
+				return
 			}
+		}()
+	}
+	l.loginValidating.SetTo(true)
+	l.Update()
+}
+
+func (l *login) OnReqValideteCode(ctx app.Context, e app.Event) {
+	l.mode = "otp"
+	l.Update()
+}
+
+func (l *login) OnUpdateCode(ctx app.Context, e app.Event) {
+	app.Log("Updating OTP")
+	l.otp = ctx.JSSrc.Get("value").String()
+	l.Update()
+}
+
+func (l *login) OnValidateCode(ctx app.Context, e app.Event) {
+	if l.otp != "" {
+		go func() {
+			defer l.Update()
+			type validation struct {
+				OTP      string `json:"otp"`
+				Username string `json:"username"`
+			}
+
+			var valid validation
+			valid.OTP = l.otp
+			valid.Username = l.email
+			data, err := json.Marshal(&valid)
+			if err != nil {
+				app.Log(err.Error())
+				l.mode = ""
+				l.Update()
+			}
+			app.Log(string(data))
+			req, _ := http.NewRequest("POST", auth+"otp", bytes.NewBuffer(data))
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				app.Log(err.Error())
+				l.mode = ""
+				l.Update()
+			}
+			if resp.StatusCode == http.StatusOK {
+				app.Dispatch(func() {
+					l.mode = ""
+					l.loginValidating.UnSet()
+					l.Update()
+				})
+				return
+			}
+			app.Dispatch(func() {
+				l.mode = "otp"
+				l.loginValidating.UnSet()
+				l.Update()
+			})
 		}()
 	}
 	l.loginValidating.SetTo(true)

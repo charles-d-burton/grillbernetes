@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+spec:
+  ports:
+  - port: 80
+    targetPort: 7777
+  selector:
+    app: auth-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+spec:
+  selector:
+    matchLabels:
+      app: auth-service
+  replicas: 1
+  revisionHistoryLimit: 2
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-service
+        image: "charlesdburton/grillbernetes-auth-service:latest"
+        ports:
+        - containerPort: 7777
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 7777
+          initialDelaySeconds: 10
+          periodSeconds: 2
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 7777
+          initialDelaySeconds: 10
+          periodSeconds: 2
+          failureThreshold: 2
+        env:
+          - name: SERVER_MODE
+            value: DEBUG
+          - name: REGION
+            value: us-east-1
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: auth-secrets
+                key: AWS_ACCESS_KEY_ID
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: auth-secrets
+                key: AWS_SECRET_ACCESS_KEY
+          - name: COGNITO_USER_POOL_ID
+            valueFrom:
+              secretKeyRef:
+                name: auth-secrets
+                key: COGNITO_USER_POOL_ID
+          - name: COGNITO_APP_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: auth-secrets
+                key: COGNITO_APP_CLIENT_ID
+
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: auth-service
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  tls:
+  - hosts:
+    - auth.home.rsmachiner.com
+    secretName: auth
+  rules:
+  - host: auth.home.rsmachiner.com
+    http:
+      paths:
+      - backend:
+          serviceName: auth-service
+          servicePort: 80

@@ -82,7 +82,7 @@ func main() {
 	flag.StringVar(&natsHost, "nats-host", "", "Start the controller connecting to the defined NATS Streaming server")
 	flag.StringVar(&publishTopic, "pt", "smoker-controls", "Topic to publish readings to in NATS")
 	flag.StringVar(&publishTopic, "publish-topic", "smoker-controls", "Topic to publish readings to in NATS")
-	flag.BoolVar(&mockGen, "mock", false, "Generate mock data")
+	//flag.BoolVar(&mockGen, "mock", false, "Generate mock data")
 	flag.BoolVar(&debug, "d", false, "Turn on Debugging/Cors")
 	flag.BoolVar(&debug, "debug", false, "Turn on Debugging/Cors")
 

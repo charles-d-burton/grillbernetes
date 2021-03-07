@@ -7,12 +7,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/go-redis/redis"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/sirupsen/logrus"
@@ -24,14 +26,17 @@ const (
 )
 
 var (
-	region   string
-	log      = logrus.New()
-	json     = jsoniter.ConfigCompatibleWithStandardLibrary
-	poolId   string
-	clientId string
-	poolKey  string
-	keySet   *jwk.Set
-	debug    bool
+	region           string
+	log              = logrus.New()
+	rc               *redis.Client
+	json             = jsoniter.ConfigCompatibleWithStandardLibrary
+	poolId           string
+	clientId         string
+	poolKey          string
+	keySet           *jwk.Set
+	debug            bool
+	userCache        = make(chan *cognitoidentityprovider.AuthenticationResultType, 5000)
+	userInvalidation = make(chan string, 5000)
 )
 
 // CognitoFlow holds internals for auth flow.s
@@ -47,8 +52,11 @@ type regFlow struct {
 }
 
 func init() {
+	var redisHost string
 	log.SetFormatter(&logrus.JSONFormatter{})
 	flag.StringVar(&region, "region", "us-east-1", "Set cognito IDP Region")
+	flag.StringVar(&redisHost, "rh", "", "-rh Redis Hostname")
+	flag.StringVar(&redisHost, "redis-host", "", "--redis-host Redis Hostname")
 	flag.Parse()
 	if os.Getenv("COGNITO_USER_POOL_ID") == "" || os.Getenv("COGNITO_APP_CLIENT_ID") == "" {
 		log.Fatal("Cognito Pool Information not set, make sure you set both COGNITO_USER_POOL_ID and COGNITO_APP_CLIENT_ID")
@@ -62,6 +70,22 @@ func init() {
 		log.Info("Turning on DEBUG Mode")
 		debug = true
 	}
+	if redisHost == "" {
+		redisHost = os.Getenv("REDIS_HOST")
+		if redisHost == "" {
+			log.Fatal("Redis Host Undefined, exiting...")
+		}
+
+	}
+
+	rc = redis.NewClient(&redis.Options{
+		Addr:         redisHost,
+		Password:     "",
+		DB:           2,
+		MinIdleConns: 1,
+		MaxRetries:   5,
+	})
+	rc.Ping()
 	poolKey = "https://cognito-idp." + region + ".amazonaws.com/" + poolId + "/.well-known/jwks.json"
 }
 
@@ -164,6 +188,15 @@ func main() {
 
 //HealthCheck K8S healthcheck endpoint
 func HealthCheck(w http.ResponseWriter, r *http.Request) {
+	res, err := rc.Ping().Result()
+	if err != nil || res != "PONG" {
+		log.Error("redis connection failed")
+		var failure = map[string]string{"redis": "connection failed"}
+		data, _ := json.Marshal(&failure)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(data)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -313,45 +346,73 @@ func (c *CognitoFlow) Username(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "taken", http.StatusConflict)
 }
 
+type userdata struct {
+	Username     string `json:"username"`
+	Password     string `json:"password,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+}
+
 // Login handles login scenario.
 func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 	if debug {
 		log.Info("Starting Login Flow")
 	}
-	type userdata struct {
-		Username     string `json:"username"`
-		Password     string `json:"password,omitempty"`
-		RefreshToken string `json:"refresh_token,omitempty"`
-	}
-
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Error(err)
+	var user userdata
+	username := r.Header.Get("username")
+	password := r.Header.Get("password")
+	refreshToken := r.Header.Get("Authorization")
+	if (username != "" && password != "") || refreshToken != "" {
+		if username != "" && password != "" {
+			user.Username = username
+			user.Password = password
+		}
+		if refreshToken != "" {
+			user.RefreshToken = refreshToken
+		}
+	} else {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Error(err)
+			if debug {
+				fmt.Println(string(body))
+			}
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
 		if debug {
 			fmt.Println(string(body))
 		}
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	if debug {
-		fmt.Println(string(body))
-	}
-	var user userdata
-	err = json.Unmarshal(body, &user)
-	if err != nil {
-		log.Error(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+
+		err = json.Unmarshal(body, &user)
+		if err != nil {
+			log.Error(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	log.Info(user.Username)
+	data, status, err := user.Auth(c)
+	if err != nil {
+		log.Error(err)
+		http.Error(w, "", status)
+		return
+	}
+	if status != http.StatusOK {
+		log.Error(fmt.Errorf("Service Error Status Code: %d", status))
+		http.Error(w, "", status)
+		return
+	}
+	w.Write(data)
+}
 
+//Auth perform the user auth returning the auth response, http code, and/or an error
+func (user *userdata) Auth(c *CognitoFlow) ([]byte, int, error) {
 	flow := aws.String(flowUsernamePassword)
 	params := map[string]*string{
 		"USERNAME": aws.String(user.Username),
 		"PASSWORD": aws.String(user.Password),
 	}
-
 	if user.RefreshToken != "" {
 		flow = aws.String(flowRefreshToken)
 		params = map[string]*string{
@@ -371,51 +432,64 @@ func (c *CognitoFlow) Login(w http.ResponseWriter, r *http.Request) {
 		awsErr, ok := err.(awserr.Error)
 		if ok {
 			if awsErr.Code() == cognitoidentityprovider.ErrCodeResourceNotFoundException {
-				http.Error(w, "", http.StatusNotFound)
-				return
+				return nil, http.StatusNotFound, err
 			}
 			if awsErr.Code() == cognitoidentityprovider.ErrCodeInvalidParameterException {
-				http.Error(w, "", http.StatusInternalServerError)
-				return
+				return nil, http.StatusInternalServerError, err
 			}
 		}
-		http.Error(w, "", http.StatusUnauthorized)
-		return
+		return nil, http.StatusUnauthorized, nil
 	}
 	data, err := json.Marshal(&res)
 	if err != nil {
 		log.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
+		return nil, http.StatusInternalServerError, err
 	}
 	fmt.Println(string(data))
 	//w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(data)
 	if err != nil {
 		log.Error(err)
 	}
+	//TODO: Might not be the best idea
+	go func() {
+		userCache <- res.AuthenticationResult
+	}()
+	return data, http.StatusOK, nil
+}
+
+type tokendata struct {
+	Accestoken string `json:"access_token"`
 }
 
 //ValidateAccessToken verifies that the access token used is valid
 func ValidateAccessToken(w http.ResponseWriter, r *http.Request) {
-	type tokendata struct {
-		Accestoken string `json:"access_token"`
-	}
+	var token tokendata
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Error(err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
 
-	body, err := ioutil.ReadAll(r.Body)
+		err = json.Unmarshal(body, &token)
+		if err != nil {
+			log.Error(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+	token.Accestoken = authHeader
+	_, err := token.Validate()
 	if err != nil {
 		log.Error(err)
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(w, "", http.StatusForbidden)
 		return
 	}
-	var token tokendata
-	err = json.Unmarshal(body, &token)
-	if err != nil {
-		log.Error(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+}
 
-	_, err = jwt.Parse(token.Accestoken, func(token *jwt.Token) (interface{}, error) {
+func (token *tokendata) Validate() (string, error) {
+	tok, err := jwt.Parse(token.Accestoken, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
@@ -431,11 +505,31 @@ func ValidateAccessToken(w http.ResponseWriter, r *http.Request) {
 		var raw interface{}
 		return raw, keys[0].Raw(&raw)
 	})
-	if err != nil {
+	if err != nil || !tok.Valid {
 		log.Error(err)
-		http.Error(w, "", http.StatusForbidden)
-		return
+		if err == nil {
+			return "", fmt.Errorf("Token validity: %t", tok.Valid)
+		}
+		return "", err
 	}
+	if claims, ok := tok.Claims.(jwt.MapClaims); ok {
+		exp, ok := claims["exp"].(int64)
+		if !ok {
+			return "", fmt.Errorf("Token validity: %t", ok)
+		}
+
+		if exp > time.Now().Unix() {
+			log.Info("Token epxired")
+			return "", fmt.Errorf("Token expired %d", exp)
+		}
+
+		sub, ok := claims["sub"].(string)
+		if !ok {
+			return "", fmt.Errorf("Token missing sub")
+		}
+		return sub, nil
+	}
+	return "", fmt.Errorf("Something went wrong parsing token")
 }
 
 //Signout  sign out of the platform
@@ -483,4 +577,35 @@ func (c *CognitoFlow) Signout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	return
+}
+
+func setAuthResultToRedis() {
+	for {
+		select {
+		case res := <-userCache:
+
+			exp := time.Duration(*res.ExpiresIn)
+			var td tokendata
+			td.Accestoken = *res.AccessToken
+			sub, err := td.Validate()
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			rc.Set(sub, *res.RefreshToken, exp)
+			//TODO: Get the sub and set the refresh token
+			//rc.Set(*res.AccessToken, res, exp)
+		}
+	}
+}
+
+//TODO: Make the timer configurable
+func validateCache() {
+	ticker := time.NewTicker(5 * time.Minute)
+	for {
+		select {
+		case <-ticker.C:
+
+		}
+	}
 }

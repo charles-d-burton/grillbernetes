@@ -1,4 +1,4 @@
-name: GrillbernetesDeploy
+name: Grillbernetes
 
 on:
   push:

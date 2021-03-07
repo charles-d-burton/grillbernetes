@@ -49,6 +49,8 @@ spec:
             value: DEBUG
           - name: REGION
             value: us-east-1
+          - name: REDIS_HOST
+            value: "redis.default.svc:6379"
           - name: AWS_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:

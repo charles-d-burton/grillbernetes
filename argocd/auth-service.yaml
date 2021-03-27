@@ -73,7 +73,7 @@ spec:
                 key: COGNITO_APP_CLIENT_ID
 
 ---
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: auth-service
@@ -87,9 +87,13 @@ spec:
     - auth.home.rsmachiner.com
     secretName: auth
   rules:
-  - host: auth.home.rsmachiner.com
+  - host: "auth.home.rsmachiner.com"
     http:
       paths:
-      - backend:
-          serviceName: auth-service
-          servicePort: 80
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service: 
+            name: auth-service
+            port:
+              number: 80

@@ -47,7 +47,7 @@ spec:
           periodSeconds: 2
           failureThreshold: 2
 ---
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: control-hub
@@ -61,9 +61,13 @@ spec:
     - control-hub.home.rsmachiner.com
     secretName: control-hub
   rules:
-  - host: control-hub.home.rsmachiner.com
+  - host: "control-hub.home.rsmachiner.com"
     http:
       paths:
-      - backend:
-          serviceName: control-hub
-          servicePort: 80
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: control-hub
+            port: 
+              number: 80

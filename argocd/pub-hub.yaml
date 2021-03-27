@@ -48,7 +48,7 @@ spec:
           periodSeconds: 2
           failureThreshold: 2
 ---
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: pub-hub
@@ -62,9 +62,13 @@ spec:
     - pub-hub.home.rsmachiner.com
     secretName: pub-hub
   rules:
-  - host: pub-hub.home.rsmachiner.com
+  - host: "pub-hub.home.rsmachiner.com"
     http:
       paths:
-      - backend:
-          serviceName: pub-hub
-          servicePort: 80
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: pub-hub
+            port:
+              number: 80

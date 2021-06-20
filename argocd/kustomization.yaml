@@ -21,4 +21,4 @@ images:
   newTag: d35c40780ff1abc14688a9161b3be40e7774c219
 - name: charlesdburton/grillbernetes-stream-manager:latest
   newName: charlesdburton/grillbernetes-stream-manager
-  newTag: 46bc7280de05d5d6107d85c99ea208232c2ecdc8
+  newTag: d35c40780ff1abc14688a9161b3be40e7774c219

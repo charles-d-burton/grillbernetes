@@ -8,7 +8,6 @@ spec:
       containers:
       - name: stream-manager
         image: "charlesdburton/grillbernetes-stream-manager:latest"
-        command: ["stream-manager"]
         env:
         - name: NATS_HOST
           value: "nats.default.svc"

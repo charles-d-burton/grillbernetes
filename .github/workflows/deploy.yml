@@ -330,7 +330,7 @@ jobs:
           kustomize edit set image charlesdburton/grillbernetes-control-hub:latest=charlesdburton/grillbernetes-control-hub:${{ github.sha }}
           kustomize edit set image charlesdburton/grillbernetes-events:latest=charlesdburton/grillbernetes-events:${{ github.sha }}
           kustomize edit set image charlesdburton/grillbernetes-pub-hub:latest=charlesdburton/grillbernetes-pub-hub:${{ github.sha }}
-          kustomize edit set image charlesdburton/grillbernetes-pub-hub:latest=charlesdburton/grillbernetes-stream-manager:${{ github.sha }}
+          kustomize edit set image charlesdburton/grillbernetes-stream-manager:latest=charlesdburton/grillbernetes-stream-manager:${{ github.sha }}
           cat kustomization.yaml
           
       - name: Commit Files

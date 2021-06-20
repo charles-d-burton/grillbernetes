@@ -9,16 +9,16 @@ resources:
 images:
 - name: charlesdburton/grillbernetes-auth-service:latest
   newName: charlesdburton/grillbernetes-auth-service
-  newTag: d35c40780ff1abc14688a9161b3be40e7774c219
+  newTag: 01b7f08478f46ea5acb0ce8011fe087f9e50f176
 - name: charlesdburton/grillbernetes-control-hub:latest
   newName: charlesdburton/grillbernetes-control-hub
-  newTag: d35c40780ff1abc14688a9161b3be40e7774c219
+  newTag: 01b7f08478f46ea5acb0ce8011fe087f9e50f176
 - name: charlesdburton/grillbernetes-events:latest
   newName: charlesdburton/grillbernetes-events
-  newTag: d35c40780ff1abc14688a9161b3be40e7774c219
+  newTag: 01b7f08478f46ea5acb0ce8011fe087f9e50f176
 - name: charlesdburton/grillbernetes-pub-hub:latest
-  newName: charlesdburton/grillbernetes-pub-hub
-  newTag: d35c40780ff1abc14688a9161b3be40e7774c219
+  newName: charlesdburton/grillbernetes-stream-manager
+  newTag: 01b7f08478f46ea5acb0ce8011fe087f9e50f176
 - name: charlesdburton/grillbernetes-stream-manager:latest
   newName: charlesdburton/grillbernetes-stream-manager
   newTag: d35c40780ff1abc14688a9161b3be40e7774c219

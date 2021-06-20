@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -32,7 +31,7 @@ func main() {
 		natsPort = "4222"
 	}
 
-	conn, err := nats.Connect(fmt.Sprintf("nats://%q:%q", natsHost, natsPort))
+	conn, err := nats.Connect("nats://" + natsHost + ":" + natsPort)
 	if err != nil {
 		log.Fatal(err)
 	}

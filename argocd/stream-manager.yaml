@@ -10,7 +10,7 @@ spec:
         image: "charlesdburton/grillbernetes-stream-manager:latest"
         env:
         - name: NATS_HOST
-          value: "nats.default.svc"
+          value: nats.default.svc
         - name: NATS_PORT
           value: "4222"
       restartPolicy: Never

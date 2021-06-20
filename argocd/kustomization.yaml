@@ -5,6 +5,7 @@ resources:
 - control-hub.yaml
 - events.yaml
 - pub-hub.yaml
+- stream-manager.yaml
 images:
 - name: charlesdburton/grillbernetes-auth-service:latest
   newName: charlesdburton/grillbernetes-auth-service

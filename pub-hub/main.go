@@ -65,6 +65,7 @@ func init() {
 			log.Fatal("REDIS_HOST Undefined\n", usageStr)
 		}
 	}
+	log.Infof("connecting to nats host: %q", natsHost)
 	nc, err := nats.Connect(natsHost)
 	if err != nil {
 		log.Fatal(err)

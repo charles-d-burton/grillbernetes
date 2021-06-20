@@ -51,12 +51,14 @@ func main() {
 		MaxAge:   24 * time.Hour,
 	}
 	if info == nil {
+		log.Info("streams not found, initializing streams and subjects")
 		_, err := js.AddStream(streamConfig)
 		if err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
 	}
+	log.Info("streams already configured, updating streams with latest subjects")
 	_, err = js.UpdateStream(streamConfig)
 	if err != nil {
 		log.Fatal(err)

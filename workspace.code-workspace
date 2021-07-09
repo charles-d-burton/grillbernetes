@@ -1,0 +1,47 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "vugu"
+		},
+		{
+			"path": "pub-hub"
+		},
+		{
+			"path": "wasm-app"
+		},
+		{
+			"path": "doorbell"
+		},
+		{
+			"path": "flutter"
+		},
+		{
+			"path": "pismoker"
+		},
+		{
+			"path": "events"
+		},
+		{
+			"path": "control-hub"
+		},
+		{
+			"path": "gateway"
+		},
+		{
+			"path": "argocd"
+		},
+		{
+			"path": "auth-service"
+		},
+		{
+			"path": "stream-manager"
+		},
+		{
+			"path": ".github/workflows"
+		}
+	],
+	"settings": {}
+}

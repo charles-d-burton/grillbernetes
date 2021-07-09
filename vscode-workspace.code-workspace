@@ -1,37 +1,34 @@
 {
     "folders": [
         {
-            "path": "pismoker"
-        },
-        {
             "path": "argocd"
         },
         {
             "path": "auth-service"
         },
         {
-            "path": "control-hub"
-        },
-        {
-            "path": "doorbell"
-        },
-        {
             "path": "events"
+        },
+        {
+            "path": "wasm-app"
         },
         {
             "path": "flutter"
         },
         {
-            "path": "gateway"
+            "path": "pismoker"
         },
         {
             "path": "pub-hub"
         },
         {
-            "path": "vugu"
+            "path": "control-hub"
         },
         {
-            "path": "wasm-app"
+            "path": "gateway"
+        },
+        {
+            "path": "doorbell"
         }
     ]
 }

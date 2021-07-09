@@ -29,7 +29,7 @@ spec:
         image: "charlesdburton/grillbernetes-pub-hub:latest"
         args:
         - "-rd=redis.default.svc:6379"
-        - "-nh=nats://nats-cluster.default.svc:4222"
+        - "-nh=nats://nats.default.svc:4222"
         ports:
         - containerPort: 7777
         imagePullPolicy: Always

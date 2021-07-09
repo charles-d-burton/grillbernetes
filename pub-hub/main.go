@@ -9,10 +9,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
-	"github.com/google/uuid"
 	nats "github.com/nats-io/nats.go"
-	stan "github.com/nats-io/stan.go"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	streamName = "PUB-HUB"
 )
 
 var (
@@ -23,7 +25,7 @@ Options:
 	-rd, --redis-host      <REDIS_HOST>    Start the controller connecting to the defined Redis Host
 `
 	log = logrus.New()
-	sc  stan.Conn
+	js  nats.JetStreamContext
 	rc  *redis.Client
 )
 
@@ -66,22 +68,23 @@ func init() {
 		}
 	}
 	log.Infof("connecting to nats host: %q", natsHost)
-	nc, err := nats.Connect(natsHost)
+	conn, err := nats.Connect(natsHost,
+		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
+			log.Error(err)
+		}),
+		nats.DisconnectHandler(func(_ *nats.Conn) {
+			log.Error("unexpectedly disconnected from nats")
+		}),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	guid, err := uuid.NewRandom() //Create a new random unique identifier
+
+	js, err = conn.JetStream()
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Info("UUID: ", guid.String())
-	sc, err = stan.Connect("nats-streaming", guid.String(), stan.NatsConn(nc),
-		stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
-			log.Fatal(reason)
-		}))
-	if err != nil {
-		log.Fatal(err)
-	}
+
 	rc = redis.NewClient(&redis.Options{
 		Addr:         redisHost,
 		Password:     "",
@@ -101,10 +104,6 @@ func init() {
 			}
 		}
 	}()
-}
-
-func usage() {
-	log.Fatalf(usageStr)
 }
 
 func main() {
@@ -136,7 +135,7 @@ func PostData(c *gin.Context) {
 	log.Info("Publishing to: ", c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"))
 	//TODO: Need to thread this probably, a pool of workers would be a good idea here
 	log.Info("Msg: ", string(msg.Data))
-	err := sc.Publish(c.Param("group")+"."+c.Param("device")+"."+c.Param("channel"), msg.Data)
+	_, err := js.Publish(streamName+c.Param("group")+"."+c.Param("device")+"."+c.Param("channel"), msg.Data)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

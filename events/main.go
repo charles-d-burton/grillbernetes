@@ -13,15 +13,14 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	uuid "github.com/google/uuid"
 	"github.com/jeffchao/backoff"
 	nats "github.com/nats-io/nats.go"
-	stan "github.com/nats-io/stan.go"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	queuelen = 100
+	queuelen   = 100
+	streamName = "EVENTS"
 )
 
 var (
@@ -48,7 +47,7 @@ type Env struct {
 //NATSConnection holds the connection and status information of the NATS backend
 type NATSConnection struct {
 	sync.RWMutex
-	Conn        stan.Conn
+	Conn        *nats.Conn
 	NatsHost    string
 	subscribers map[string]*Subscriber
 }
@@ -56,7 +55,7 @@ type NATSConnection struct {
 //Subscriber non-blocking broker of NATS messages to HTTP clients
 type Subscriber struct {
 	topic           string
-	sub             stan.Subscription
+	sub             *nats.Subscription
 	connEstablished chan bool
 	clients         map[chan []byte]bool
 	newClients      chan chan []byte
@@ -137,26 +136,8 @@ func (conn *NATSConnection) Connect() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			guid, err := uuid.NewRandom() //Create a new random unique identifier
-			if err != nil {
-				log.Error(err)
-				return err
-			}
-			log.Info("UUID: ", guid.String())
-			sc, err := stan.Connect("nats-streaming", guid.String(), stan.NatsConn(nc),
-				stan.SetConnectionLostHandler(func(_ stan.Conn, reason error) {
-					log.Info("Client Disconnected, sending cleanup signal")
-					log.Info(reason)
-					for _, sub := range conn.subscribers {
-						sub.connEstablished <- false
-					}
-					cleanup <- true //Fire the job to throw an error and retry
-				}))
-			if err != nil {
-				return err
-			}
 			conn.Lock()
-			conn.Conn = sc //Save the connection
+			conn.Conn = nc //Save the connection
 			conn.Unlock()
 			log.Info("NATS Connected")
 			if len(conn.subscribers) > 0 {
@@ -287,12 +268,19 @@ func (subscriber *Subscriber) Start(conn *NATSConnection) error {
 }
 
 //Subscribe to a given topic in NATS
-func (subscriber *Subscriber) Subscribe(conn *NATSConnection) (stan.Subscription, error) {
+func (subscriber *Subscriber) Subscribe(conn *NATSConnection) (*nats.Subscription, error) {
 	log.Info("Initializing callback")
 	log.Info("Subscription topic is: ", subscriber.topic)
-	sub, err := conn.Conn.Subscribe(subscriber.topic, func(m *stan.Msg) {
+	js, err := conn.Conn.JetStream()
+	if err != nil {
+		return nil, err
+	}
+	sub, err := js.Subscribe(streamName+"."+subscriber.topic, func(m *nats.Msg) {
+		meta, _ := m.Metadata()
+		log.Infof("Stream Sequence  : %v\n", meta.Sequence.Stream)
+		log.Infof("Consumer Sequence: %v\n", meta.Sequence.Consumer)
 		var msg Message
-		msg.Timestamp = m.Timestamp
+		msg.Timestamp = meta.Timestamp.Unix()
 		msg.Datum = m.Data
 		data, err := json.Marshal(&msg)
 		if err != nil {
@@ -300,7 +288,7 @@ func (subscriber *Subscriber) Subscribe(conn *NATSConnection) (stan.Subscription
 		} else {
 			subscriber.messages <- data
 		}
-	}, stan.StartWithLastReceived())
+	}, nats.DeliverNew())
 	if err != nil {
 		return nil, err
 	}

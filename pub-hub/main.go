@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	streamName = "PUB-HUB"
+	streamName = "EVENTS"
 )
 
 var (
@@ -132,10 +132,10 @@ func PostData(c *gin.Context) {
 		return
 	}
 
-	log.Info("Publishing to: ", c.Param("group")+"-"+c.Param("device")+"-"+c.Param("channel"))
+	log.Info("Publishing to: ", streamName+"."+c.Param("group")+"."+c.Param("device")+"."+c.Param("channel"))
 	//TODO: Need to thread this probably, a pool of workers would be a good idea here
 	log.Info("Msg: ", string(msg.Data))
-	_, err := js.Publish(streamName+c.Param("group")+"."+c.Param("device")+"."+c.Param("channel"), msg.Data)
+	_, err := js.Publish(streamName+"."+c.Param("group")+"."+c.Param("device")+"."+c.Param("channel"), msg.Data)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

@@ -37,9 +37,6 @@
 			"path": "auth-service"
 		},
 		{
-			"path": "stream-manager"
-		},
-		{
 			"path": ".github/workflows"
 		}
 	],

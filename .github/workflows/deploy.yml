@@ -249,65 +249,6 @@ jobs:
       - name: Push Manifest
         run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-pub-hub:${{ github.sha }}
 
-  stream-manager-build-arm:
-    runs-on: ubuntu-latest
-    name: Build arm version of stream-manager
-    steps:
-      - uses: actions/checkout@v2
-      - name: Docker Login
-        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
-      - name: Build Arm
-        working-directory: stream-manager
-        run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-stream-manager:arm --target=arm --file=./Dockerfile .
-      - name: Push Image
-        run: docker push charlesdburton/grillbernetes-stream-manager:arm
-  stream-manager-build-arm64:
-    runs-on: ubuntu-latest
-    name: Build arm64 version of stream-manager
-    steps:
-      - uses: actions/checkout@v2
-      - name: Docker Login
-        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
-      - name: Build Arm64
-        working-directory: stream-manager
-        run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-stream-manager:arm64 --target=arm64 --file=./Dockerfile .
-      - name: Push Image
-        run: docker push charlesdburton/grillbernetes-stream-manager:arm64
-  stream-manager-build-amd64:
-    runs-on: ubuntu-latest
-    name: Build amd64 version of stream-manager
-    steps:
-      - uses: actions/checkout@v2
-      - name: Docker Login
-        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
-      - name: Build AMD64
-        working-directory: stream-manager
-        run: DOCKER_BUILDKIT=1 docker build -t charlesdburton/grillbernetes-stream-manager:amd64 --target=amd64 --file=./Dockerfile .
-      - name: Push Image
-        run: docker push charlesdburton/grillbernetes-stream-manager:amd64
-  stream-manager-build-manifest:
-    runs-on: ubuntu-latest
-    name: Collect manifest and push
-    needs: ["stream-manager-build-arm", "stream-manager-build-arm64", "stream-manager-build-amd64"]
-    steps:
-      - uses: actions/checkout@v2
-      - name: Docker Login
-        run: docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
-      - name: Build Manifest
-        run: |
-          DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create charlesdburton/grillbernetes-stream-manager:${{ github.sha }} \
-          charlesdburton/grillbernetes-stream-manager:amd64 \
-          charlesdburton/grillbernetes-stream-manager:arm \
-          charlesdburton/grillbernetes-stream-manager:arm64 
-      - name: Annotate Arm
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm charlesdburton/grillbernetes-stream-manager:${{ github.sha }} charlesdburton/grillbernetes-stream-manager:arm
-      - name: Annotate Arm64
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch arm64 charlesdburton/grillbernetes-stream-manager:${{ github.sha }} charlesdburton/grillbernetes-stream-manager:arm64
-      - name: Annotate AMD64
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest annotate --arch amd64 charlesdburton/grillbernetes-stream-manager:${{ github.sha }} charlesdburton/grillbernetes-stream-manager:amd64
-      - name: Push Manifest
-        run: DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push charlesdburton/grillbernetes-stream-manager:${{ github.sha }}
-
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
@@ -330,7 +271,6 @@ jobs:
           kustomize edit set image charlesdburton/grillbernetes-control-hub:latest=charlesdburton/grillbernetes-control-hub:${{ github.sha }}
           kustomize edit set image charlesdburton/grillbernetes-events:latest=charlesdburton/grillbernetes-events:${{ github.sha }}
           kustomize edit set image charlesdburton/grillbernetes-pub-hub:latest=charlesdburton/grillbernetes-pub-hub:${{ github.sha }}
-          kustomize edit set image charlesdburton/grillbernetes-stream-manager:latest=charlesdburton/grillbernetes-stream-manager:${{ github.sha }}
           cat kustomization.yaml
           
       - name: Commit Files

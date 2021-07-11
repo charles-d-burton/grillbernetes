@@ -145,10 +145,26 @@ func (conn *NATSConnection) Connect() {
 					sub.connEstablished <- true //Let the subscriptions know the connections was established
 				}
 			}
-			select {
-			case <-cleanup:
-				return errors.New("Connection lost")
+			js, err := conn.Conn.JetStream()
+			if err != nil {
+				log.Fatal(err)
 			}
+			stream, err := js.StreamInfo(streamName)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if stream == nil {
+				log.Infof("creating stream %v", streamName)
+				_, err := js.AddStream(&nats.StreamConfig{
+					Name:     streamName,
+					Subjects: []string{streamName + ".*"},
+				})
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			<-cleanup //Wait for cleanup signal
+			return errors.New("Connection lost")
 		}
 		err := f.Retry(connect)
 		if err != nil {

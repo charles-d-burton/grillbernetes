@@ -151,7 +151,7 @@ func (conn *NATSConnection) Connect() {
 			}
 			stream, err := js.StreamInfo(streamName)
 			if err != nil {
-				log.Fatal(err)
+				log.Error(err)
 			}
 			if stream == nil {
 				log.Infof("creating stream %v", streamName)
@@ -164,7 +164,7 @@ func (conn *NATSConnection) Connect() {
 				}
 			}
 			<-cleanup //Wait for cleanup signal
-			return errors.New("Connection lost")
+			return errors.New("connection lost")
 		}
 		err := f.Retry(connect)
 		if err != nil {

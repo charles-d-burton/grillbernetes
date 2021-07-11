@@ -155,7 +155,7 @@ func (conn *NATSConnection) Connect() {
 			}
 			config := &nats.StreamConfig{
 				Name:     streamName,
-				Subjects: []string{streamName + ".*" + ".*" + ".*"},
+				Subjects: []string{streamName + ".>"},
 			}
 			if stream == nil {
 				log.Infof("creating stream %v", streamName)

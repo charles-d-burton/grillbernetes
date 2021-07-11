@@ -153,12 +153,19 @@ func (conn *NATSConnection) Connect() {
 			if err != nil {
 				log.Error(err)
 			}
+			config := &nats.StreamConfig{
+				Name:     streamName,
+				Subjects: []string{streamName + ".*" + ".*" + ".*"},
+			}
 			if stream == nil {
 				log.Infof("creating stream %v", streamName)
-				_, err := js.AddStream(&nats.StreamConfig{
-					Name:     streamName,
-					Subjects: []string{streamName + ".*"},
-				})
+				_, err := js.AddStream(config)
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				log.Infof("updating stream %v", streamName)
+				_, err := js.UpdateStream(config)
 				if err != nil {
 					log.Fatal(err)
 				}

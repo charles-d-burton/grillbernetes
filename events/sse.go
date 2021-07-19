@@ -32,8 +32,8 @@ func (env *Env) SubscribeSSE(c *gin.Context) {
 			subscriber.defunctClients <- queue //Remove our client from the client list
 			return false
 		case message := <-queue:
-			c.Writer.Header().Set("Content-Type", "text/event-stream")
 			if realSSE {
+				c.Writer.Header().Set("Content-Type", "text/event-stream")
 				c.SSEvent("message", json.RawMessage(message))
 				return true
 			}

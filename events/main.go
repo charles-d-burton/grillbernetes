@@ -95,7 +95,13 @@ func main() {
 
 	router := gin.Default()
 	if debug {
-		router.Use(cors.Default())
+		router.Use(cors.New(cors.Config{
+			AllowAllOrigins:  true,
+			AllowHeaders:     []string{"Origin"},
+			AllowMethods:     []string{"PUT", "PATCH", "GET"},
+			AllowCredentials: true,
+			ExposeHeaders:    []string{"Content-Length"},
+		}))
 	}
 	if mockGen {
 		router.GET("/events/:device/:channel", MockGen)

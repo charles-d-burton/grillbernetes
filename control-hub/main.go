@@ -34,6 +34,7 @@ func init() {
 	flag.Parse()
 	if redisHost == "" {
 		redisHost = os.Getenv("REDIS_HOST")
+		log.Debug(redisHost)
 	}
 	if redisHost == "" {
 		usage()
